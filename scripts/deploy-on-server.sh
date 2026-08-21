@@ -13,9 +13,12 @@ install_base_packages() {
     apt-get update -y
     apt-get install -y nginx git curl ca-certificates gnupg
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y nginx git curl ca-certificates
+    # OpenCloudOS + BT Panel often excludes nginx/httpd from default dnf matches.
+    dnf install -y git curl ca-certificates
+    dnf install -y nginx --disableexcludes=all
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y nginx git curl ca-certificates
+    yum install -y git curl ca-certificates
+    yum install -y nginx --disableexcludes=all
   else
     echo "Unsupported package manager" >&2
     exit 1
