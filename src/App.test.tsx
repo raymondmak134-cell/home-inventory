@@ -195,7 +195,7 @@ describe('登录页', () => {
     expect(screen.getByLabelText('密码')).toHaveAttribute('aria-invalid', 'false')
   })
 
-  it('logs in through the API and shows the account panel', async () => {
+  it('logs in through the API and shows the home empty state', async () => {
     const user = userEvent.setup()
     mockAuthApis({
       login: {
@@ -215,12 +215,16 @@ describe('登录页', () => {
     await user.type(screen.getByLabelText('密码'), 'secret1')
     await user.click(screen.getByRole('button', { name: '登录' }))
 
-    expect(await screen.findByText('账号已登录')).toBeInTheDocument()
-    expect(screen.getByText('admin')).toBeInTheDocument()
-    expect(screen.queryByText('账号管理')).not.toBeInTheDocument()
+    expect(await screen.findByText('我的家')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
+    expect(screen.getByText('请给家仓加个仓吧。')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: '入库家里第一件物品' }),
+    ).toBeInTheDocument()
   })
 
-  it('shows account management for admin users', async () => {
+  it('opens account management from the avatar for admin users', async () => {
+    const user = userEvent.setup()
     mockAuthApis({
       me: {
         id: 2,
@@ -245,9 +249,13 @@ describe('登录页', () => {
     })
     render(<App />)
 
-    expect(await screen.findByText('账号管理')).toBeInTheDocument()
+    expect(await screen.findByText('我的家')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '账号管理' }))
+
+    expect(await screen.findByRole('button', { name: '返回首页' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '账号管理' })).toBeInTheDocument()
     expect(screen.getByText('testuser01')).toBeInTheDocument()
-    expect(screen.getByText('管理员')).toBeInTheDocument()
+    expect(screen.getAllByText(/管理员/).length).toBeGreaterThan(0)
   })
 
   it('shows API field errors from the backend', async () => {

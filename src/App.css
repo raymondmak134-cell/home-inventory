@@ -509,3 +509,222 @@
     padding-top: 4.5rem;
   }
 }
+
+/* —— 首页：顶部导航 + 空仓态 —— */
+.home-page {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(900px 520px at 8% -8%, #f8fffc 0%, transparent 55%),
+    radial-gradient(700px 480px at 100% 0%, #d9ebe4 0%, transparent 50%),
+    linear-gradient(165deg, #eef6f3 0%, #e5efea 52%, #dce9e3 100%);
+  color: #14241f;
+}
+
+.top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.5rem;
+  padding: 0.75rem 1.25rem;
+  backdrop-filter: blur(10px);
+  background: color-mix(in oklab, #f4faf7 72%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, #14241f 10%, transparent);
+  animation: home-nav-in 480ms ease both;
+}
+
+.top-nav__family {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.top-nav__family-name {
+  margin: 0;
+  max-width: min(60vw, 14rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: #14241f;
+}
+
+.top-nav__family-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #5a6f68;
+  cursor: pointer;
+}
+
+.top-nav__family-toggle:hover,
+.top-nav__family-toggle:focus-visible {
+  color: #1f4f44;
+  background: color-mix(in oklab, #2f6b5d 10%, transparent);
+}
+
+.top-nav__chevron {
+  display: block;
+}
+
+.top-nav__avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 180ms ease;
+}
+
+.top-nav__avatar:hover,
+.top-nav__avatar:focus-visible {
+  transform: scale(1.04);
+}
+
+.top-nav__avatar-disk {
+  fill: #d7e8e1;
+}
+
+.home-page__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.empty-warehouse {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: min(100%, 28rem);
+  margin: 0 auto;
+  padding: clamp(3rem, 12vh, 5.5rem) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.empty-warehouse__copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  animation: home-rise 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.empty-warehouse__title {
+  margin: 0;
+  font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
+  font-size: clamp(2rem, 7vw, 2.75rem);
+  font-weight: 400;
+  line-height: 1.15;
+  color: #14241f;
+}
+
+.empty-warehouse__desc {
+  margin: 0;
+  max-width: 16rem;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #5a6f68;
+}
+
+.empty-warehouse__action {
+  width: 100%;
+  padding-top: 1.5rem;
+  animation: home-rise 760ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+
+.empty-warehouse__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.15rem;
+  padding: 0.9rem 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: #1f4f44;
+  color: #f4fffb;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.empty-warehouse__cta:hover {
+  background: #2f6b5d;
+  transform: translateY(-1px);
+}
+
+.empty-warehouse__cta:active {
+  transform: scale(0.995);
+}
+
+.account-panel__toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.text-link-btn {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #4b5563;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.text-link-btn:hover,
+.text-link-btn:focus-visible {
+  color: #111827;
+}
+
+@keyframes home-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-nav,
+  .empty-warehouse__copy,
+  .empty-warehouse__action {
+    animation: none;
+  }
+}
