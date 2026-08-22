@@ -8,6 +8,7 @@ type ProfileMenuItem = {
   label: string
   description: string
   adminOnly?: boolean
+  hidden?: boolean
 }
 
 const MENU_ITEMS: ProfileMenuItem[] = [
@@ -20,6 +21,8 @@ const MENU_ITEMS: ProfileMenuItem[] = [
     key: 'family',
     label: '家庭管理',
     description: '添加家庭与成员',
+    // 入口暂时统一隐藏；页面、路由与后端接口均保留
+    hidden: true,
   },
   {
     key: 'admin-users',
@@ -78,7 +81,9 @@ export function ProfilePage({
 
       <MenuList
         ariaLabel="个人主页功能"
-        items={MENU_ITEMS.filter((item) => !item.adminOnly || user.role === 'admin').map(
+        items={MENU_ITEMS.filter(
+          (item) => !item.hidden && (!item.adminOnly || user.role === 'admin'),
+        ).map(
           (item) => ({
             key: item.key,
             label: item.label,
