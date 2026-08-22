@@ -61,13 +61,18 @@ export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
           throw new Error('camera-unsupported')
         }
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
           audio: false,
         })
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop())
           return
         }
+        await tuneCameraTrack(stream.getVideoTracks()[0])
         if (video) {
           video.srcObject = stream
           await video.play().catch(() => {})
@@ -147,6 +152,36 @@ export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
       </div>
     </div>
   )
+}
+
+/** 部分安卓机型默认倍率偏大且不自动对焦：能力允许时倍率归 1、开启连续对焦。 */
+type ExtendedCapabilities = MediaTrackCapabilities & {
+  zoom?: { min?: number; max?: number }
+  focusMode?: string[]
+}
+
+async function tuneCameraTrack(track: MediaStreamTrack | undefined) {
+  if (!track || typeof track.getCapabilities !== 'function') return
+  try {
+    const capabilities = track.getCapabilities() as ExtendedCapabilities
+    const advanced: Record<string, unknown>[] = []
+
+    if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
+      advanced.push({ focusMode: 'continuous' })
+    }
+
+    if (capabilities.zoom && typeof capabilities.zoom.min === 'number') {
+      const min = capabilities.zoom.min
+      const max = typeof capabilities.zoom.max === 'number' ? capabilities.zoom.max : min
+      advanced.push({ zoom: Math.min(Math.max(1, min), max) })
+    }
+
+    if (advanced.length > 0) {
+      await track.applyConstraints({ advanced } as MediaTrackConstraints)
+    }
+  } catch {
+    // 能力协商失败时保留默认画面，不影响预览
+  }
 }
 
 function CloseIcon() {
