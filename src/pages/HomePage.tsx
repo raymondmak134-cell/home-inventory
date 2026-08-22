@@ -69,7 +69,6 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
         quantity: input.quantity,
         expiryDate: input.expiryDate,
         storageLocation: input.storageLocation,
-        notes: input.notes,
       })
       setItems((current) => [item, ...current])
       setScanOpen(false)
