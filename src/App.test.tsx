@@ -1,16 +1,79 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
+function mockAuthApis(options?: {
+  me?: { id: number; username: string; createdAt: string } | null
+  login?:
+    | { user: { id: number; username: string; createdAt: string } }
+    | { error: { code: string; message: string; field?: string } }
+  register?:
+    | { user: { id: number; username: string; createdAt: string } }
+    | { error: { code: string; message: string; field?: string } }
+}) {
+  const me = options?.me === undefined ? null : options.me
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/me')) {
+        if (!me) {
+          return new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: '未登录' } }), {
+            status: 401,
+            headers: { 'content-type': 'application/json' },
+          })
+        }
+        return new Response(JSON.stringify({ user: me }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/auth/login')) {
+        const body = options?.login ?? {
+          user: { id: 1, username: 'admin', createdAt: '2026-01-01 00:00:00' },
+        }
+        const ok = 'user' in body
+        return new Response(JSON.stringify(body), {
+          status: ok ? 200 : 401,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/auth/register')) {
+        const body = options?.register ?? {
+          user: { id: 2, username: 'demo', createdAt: '2026-01-01 00:00:00' },
+        }
+        const ok = 'user' in body
+        return new Response(JSON.stringify(body), {
+          status: ok ? 201 : 409,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/auth/logout')) {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      return new Response('not found', { status: 404 })
+    }),
+  )
+}
+
 describe('登录页', () => {
-  it('renders the designed login shell', () => {
+  beforeEach(() => {
+    mockAuthApis()
+  })
+
+  it('renders the designed login shell', async () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: '家仓' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '家仓' })).toBeInTheDocument()
     expect(screen.getByText('不必盲目加仓，好物存进家仓')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '登录' })).toHaveAttribute(
       'aria-selected',
@@ -24,6 +87,7 @@ describe('登录页', () => {
   it('toggles password visibility for mobile keyboard input', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await screen.findByRole('button', { name: '登录' })
 
     const password = screen.getByLabelText('密码')
     await user.type(password, 'secret123')
@@ -37,6 +101,7 @@ describe('登录页', () => {
   it('switches to register mode from the footer link', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('button', { name: '没有账号？去注册一个' }))
     expect(screen.getByRole('tab', { name: '注册账号' })).toHaveAttribute(
@@ -49,6 +114,7 @@ describe('登录页', () => {
   it('shows reserved-height field errors on empty register submit', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('tab', { name: '注册账号' }))
     expect(screen.getByPlaceholderText('请再次确认密码')).toBeInTheDocument()
@@ -65,6 +131,7 @@ describe('登录页', () => {
   it('rejects mismatched confirm password on register', async () => {
     const user = userEvent.setup()
     render(<App />)
+    await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('tab', { name: '注册账号' }))
     await user.type(screen.getByLabelText('账号'), 'demo')
@@ -73,5 +140,46 @@ describe('登录页', () => {
     await user.click(screen.getByRole('button', { name: '注册' }))
 
     expect(screen.getByText('两次输入的密码不一致')).toBeVisible()
+  })
+
+  it('logs in through the API and shows the account panel', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      login: {
+        user: { id: 1, username: 'admin', createdAt: '2026-01-01 00:00:00' },
+      },
+    })
+    render(<App />)
+    await screen.findByRole('button', { name: '登录' })
+
+    await user.clear(screen.getByLabelText('账号'))
+    await user.type(screen.getByLabelText('账号'), 'admin')
+    await user.type(screen.getByLabelText('密码'), 'secret1')
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    expect(await screen.findByText('账号已登录')).toBeInTheDocument()
+    expect(screen.getByText('admin')).toBeInTheDocument()
+  })
+
+  it('shows API field errors from the backend', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      login: {
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: '账号或密码错误',
+          field: 'password',
+        },
+      },
+    })
+    render(<App />)
+    await screen.findByRole('button', { name: '登录' })
+
+    await user.type(screen.getByLabelText('密码'), 'badpass')
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('账号或密码错误')).toBeVisible()
+    })
   })
 })

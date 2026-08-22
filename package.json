@@ -6,11 +6,16 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
+    "dev:server": "pnpm --dir server dev",
+    "dev:all": "pnpm --dir server dev & pnpm dev",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:server": "pnpm --dir server test",
+    "test:all": "pnpm test && pnpm test:server",
+    "test:watch": "vitest",
+    "start:server": "pnpm --dir server start"
   },
   "dependencies": {
     "react": "^19.2.8",

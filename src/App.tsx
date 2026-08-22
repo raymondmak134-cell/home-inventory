@@ -1,5 +1,12 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { FormEvent } from 'react'
+import {
+  fetchCurrentUser,
+  loginAccount,
+  logoutAccount,
+  registerAccount,
+  type PublicUser,
+} from './api/auth'
 import './App.css'
 
 type AuthMode = 'login' | 'register'
@@ -8,9 +15,12 @@ type FieldErrors = {
   username?: string
   password?: string
   confirmPassword?: string
+  form?: string
 }
 
 export default function App() {
+  const [bootstrapping, setBootstrapping] = useState(true)
+  const [user, setUser] = useState<PublicUser | null>(null)
   const [mode, setMode] = useState<AuthMode>('login')
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
@@ -18,12 +28,31 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [submitting, setSubmitting] = useState(false)
   const usernameId = useId()
   const passwordId = useId()
   const confirmPasswordId = useId()
   const usernameErrorId = useId()
   const passwordErrorId = useId()
   const confirmPasswordErrorId = useId()
+  const formErrorId = useId()
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const current = await fetchCurrentUser()
+        if (!cancelled) setUser(current)
+      } catch {
+        if (!cancelled) setUser(null)
+      } finally {
+        if (!cancelled) setBootstrapping(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function validate(currentMode: AuthMode): FieldErrors {
     const next: FieldErrors = {}
@@ -39,12 +68,53 @@ export default function App() {
     return next
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const next = validate(mode)
     setErrors(next)
-    if (Object.keys(next).length > 0) return
-    // Auth wiring comes later.
+    if (Object.keys(next).length > 0 || submitting) return
+
+    setSubmitting(true)
+    try {
+      const result =
+        mode === 'login'
+          ? await loginAccount(username.trim(), password)
+          : await registerAccount(username.trim(), password)
+
+      if ('error' in result) {
+        const field = result.error.field
+        if (field) {
+          setErrors({ [field]: result.error.message })
+        } else {
+          setErrors({ form: result.error.message })
+        }
+        return
+      }
+
+      setUser(result.user)
+      setPassword('')
+      setConfirmPassword('')
+      setErrors({})
+    } catch {
+      setErrors({ form: '网络异常，请稍后重试' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleLogout() {
+    setSubmitting(true)
+    try {
+      await logoutAccount()
+    } finally {
+      setUser(null)
+      setMode('login')
+      setUsername('admin')
+      setPassword('')
+      setConfirmPassword('')
+      setErrors({})
+      setSubmitting(false)
+    }
   }
 
   function switchMode(next: AuthMode) {
@@ -59,12 +129,55 @@ export default function App() {
     }
   }
 
+  if (bootstrapping) {
+    return (
+      <div className="login-page">
+        <main className="login-shell">
+          <p className="boot-status" role="status">
+            正在加载…
+          </p>
+        </main>
+      </div>
+    )
+  }
+
+  if (user) {
+    return (
+      <div className="login-page">
+        <main className="login-shell">
+          <header className="brand">
+            <img className="brand-logo" src="/logo.svg" width={78} height={70} alt="" />
+            <h1 className="brand-name">家仓</h1>
+            <p className="brand-tagline">不必盲目加仓，好物存进家仓</p>
+          </header>
+
+          <section className="account-panel" aria-label="账号信息">
+            <h2 className="account-panel__title">账号已登录</h2>
+            <p className="account-panel__name">{user.username}</p>
+            <p className="account-panel__meta">
+              注册于 {formatCreatedAt(user.createdAt)}
+            </p>
+            <button
+              type="button"
+              className="submit-btn"
+              onClick={() => void handleLogout()}
+              disabled={submitting}
+            >
+              退出登录
+            </button>
+          </section>
+        </main>
+      </div>
+    )
+  }
+
   const isLogin = mode === 'login'
   const passwordInputType = showPassword ? 'text' : 'password'
   const confirmPasswordInputType = showConfirmPassword ? 'text' : 'password'
   const usernameInvalid = Boolean(errors.username)
   const passwordInvalid = Boolean(errors.password)
   const confirmPasswordInvalid = Boolean(errors.confirmPassword)
+  const formInvalid = Boolean(errors.form)
 
   return (
     <div className="login-page">
@@ -108,7 +221,12 @@ export default function App() {
           </button>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        <form
+          className="auth-form"
+          onSubmit={(event) => void handleSubmit(event)}
+          noValidate
+          aria-describedby={formInvalid ? formErrorId : undefined}
+        >
           <div className="field-block">
             <label
               className={usernameInvalid ? 'field is-error' : 'field'}
@@ -134,8 +252,12 @@ export default function App() {
                 aria-describedby={usernameErrorId}
                 onChange={(event) => {
                   setUsername(event.target.value)
-                  if (errors.username) {
-                    setErrors((current) => ({ ...current, username: undefined }))
+                  if (errors.username || errors.form) {
+                    setErrors((current) => ({
+                      ...current,
+                      username: undefined,
+                      form: undefined,
+                    }))
                   }
                 }}
               />
@@ -174,10 +296,11 @@ export default function App() {
                 aria-describedby={passwordErrorId}
                 onChange={(event) => {
                   setPassword(event.target.value)
-                  if (errors.password || errors.confirmPassword) {
+                  if (errors.password || errors.confirmPassword || errors.form) {
                     setErrors((current) => ({
                       ...current,
                       password: undefined,
+                      form: undefined,
                       confirmPassword:
                         current.confirmPassword === '两次输入的密码不一致'
                           ? undefined
@@ -261,8 +384,16 @@ export default function App() {
             </div>
           ) : null}
 
-          <button type="submit" className="submit-btn">
-            {isLogin ? '登录' : '注册'}
+          <p
+            id={formErrorId}
+            className={formInvalid ? 'form-error is-visible' : 'form-error'}
+            role={formInvalid ? 'alert' : undefined}
+          >
+            {errors.form ?? ''}
+          </p>
+
+          <button type="submit" className="submit-btn" disabled={submitting}>
+            {submitting ? (isLogin ? '登录中…' : '注册中…') : isLogin ? '登录' : '注册'}
           </button>
         </form>
 
@@ -282,6 +413,18 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+function formatCreatedAt(value: string): string {
+  const date = new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
 function UserIcon() {
