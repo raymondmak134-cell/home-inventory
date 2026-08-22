@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/raymondmak134-cell/home-inventory.git}"
-REPO_BRANCH="${REPO_BRANCH:-cursor/home-inventory-scaffold-f1ec}"
+REPO_BRANCH="${REPO_BRANCH:-cursor/barcode-scan-inventory-ee20}"
 APP_DIR="${APP_DIR:-/opt/jiawucang}"
 WEB_ROOT="${WEB_ROOT:-/var/www/jiawucang}"
 DATA_DIR="${DATA_DIR:-/var/lib/jiawucang}"
@@ -59,13 +59,43 @@ ensure_session_secret() {
   fi
 }
 
+ensure_uploads_dir() {
+  mkdir -p "$DATA_DIR/uploads/products"
+  chmod 755 "$DATA_DIR/uploads" "$DATA_DIR/uploads/products"
+}
+
+read_tanshu_api_key() {
+  if [ -n "${TANSHU_API_KEY:-}" ]; then
+    printf '%s' "$TANSHU_API_KEY"
+    return
+  fi
+  if [ -f "$DATA_DIR/tanshu.api_key" ]; then
+    tr -d '\r\n' <"$DATA_DIR/tanshu.api_key"
+    return
+  fi
+  echo ""
+}
+
 configure_api_service() {
   local session_secret
+  local tanshu_api_key
+  local secure_cookies="false"
+  local cert_dir="/etc/letsencrypt/live/${DOMAIN}"
+
   session_secret="$(cat "$DATA_DIR/session.secret")"
+  tanshu_api_key="$(read_tanshu_api_key)"
+  if [ -f "${cert_dir}/fullchain.pem" ]; then
+    secure_cookies="true"
+  fi
+
+  if [ -z "$tanshu_api_key" ]; then
+    echo "WARNING: TANSHU_API_KEY not set. Barcode lookup will fail until you create:"
+    echo "  ${DATA_DIR}/tanshu.api_key"
+  fi
 
   cat >/etc/systemd/system/${SERVICE_NAME}.service <<EOF
 [Unit]
-Description=Jiawucang auth API
+Description=Jiawucang API
 After=network.target
 
 [Service]
@@ -75,9 +105,11 @@ Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=${API_PORT}
 Environment=DATABASE_PATH=${DATA_DIR}/jiawucang.sqlite
+Environment=UPLOADS_PATH=${DATA_DIR}/uploads
 Environment=SESSION_SECRET=${session_secret}
-Environment=SECURE_COOKIES=false
+Environment=SECURE_COOKIES=${secure_cookies}
 Environment=ADMIN_USERNAME=13424330500
+Environment=TANSHU_API_KEY=${tanshu_api_key}
 ExecStart=$(command -v pnpm) start
 Restart=on-failure
 RestartSec=3
@@ -230,6 +262,7 @@ corepack prepare pnpm@10.12.1 --activate
 
 echo "==> Preparing data directory"
 ensure_session_secret
+ensure_uploads_dir
 
 echo "==> Fetching source (${REPO_BRANCH})"
 rm -rf "$APP_DIR"
