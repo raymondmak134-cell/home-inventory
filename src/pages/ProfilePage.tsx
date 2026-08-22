@@ -1,6 +1,7 @@
 import type { PublicUser } from '../api/auth'
 import type { UserProfile } from '../api/profile'
 import { AppPage } from '../components/AppPage'
+import { MenuList } from '../components/MenuList'
 
 type ProfileMenuItem = {
   key: 'account-settings' | 'family' | 'admin-users'
@@ -75,27 +76,17 @@ export function ProfilePage({
         ) : null}
       </section>
 
-      <nav className="app-menu" aria-label="个人主页功能">
-        <ul className="app-menu__list">
-          {MENU_ITEMS.filter((item) => !item.adminOnly || user.role === 'admin').map(
-            (item) => (
-              <li key={item.key}>
-                <button
-                  type="button"
-                  className="app-menu__item"
-                  onClick={() => onNavigate(item.key)}
-                >
-                  <span className="app-menu__item-text">
-                    <span className="app-menu__item-label">{item.label}</span>
-                    <span className="app-menu__item-desc">{item.description}</span>
-                  </span>
-                  <ChevronIcon />
-                </button>
-              </li>
-            ),
-          )}
-        </ul>
-      </nav>
+      <MenuList
+        ariaLabel="个人主页功能"
+        items={MENU_ITEMS.filter((item) => !item.adminOnly || user.role === 'admin').map(
+          (item) => ({
+            key: item.key,
+            label: item.label,
+            description: item.description,
+            onClick: () => onNavigate(item.key),
+          }),
+        )}
+      />
 
       <div className="app-page__footer">
         <button type="button" className="ghost-btn app-logout-btn" onClick={onLogoutRequest}>
@@ -112,20 +103,6 @@ function DefaultAvatar() {
       <circle cx="36" cy="36" r="36" fill="#f3f4f6" />
       <circle cx="36" cy="27" r="11" fill="#ffffff" />
       <path d="M14 62c4.8-10.5 12-16 22-16s17.2 5.5 22 16" fill="#ffffff" />
-    </svg>
-  )
-}
-
-function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
-      <path
-        d="M6 4.5 9.5 8 6 11.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   )
 }
