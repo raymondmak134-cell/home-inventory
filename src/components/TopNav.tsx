@@ -43,10 +43,10 @@ export function TopNav({
       >
         <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
           <circle cx="20" cy="20" r="20" className="top-nav__avatar-disk" />
-          <circle cx="20" cy="15" r="6" fill="#f7faf9" />
+          <circle cx="20" cy="15" r="6" fill="#ffffff" />
           <path
             d="M8.5 34.5c2.8-6.2 7-9.5 11.5-9.5s8.7 3.3 11.5 9.5"
-            fill="#f7faf9"
+            fill="#ffffff"
           />
         </svg>
       </button>

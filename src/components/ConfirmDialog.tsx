@@ -51,16 +51,16 @@ export function ConfirmDialog({
         aria-labelledby={titleId}
         aria-describedby={messageId}
       >
-        <h2 id={titleId} className="confirm-dialog__title">
+        <h2 id={titleId} className="account-panel__title confirm-dialog__title">
           {title}
         </h2>
-        <p id={messageId} className="confirm-dialog__message">
+        <p id={messageId} className="brand-tagline confirm-dialog__message">
           {message}
         </p>
         <div className="confirm-dialog__actions">
           <button
             type="button"
-            className="confirm-dialog__btn confirm-dialog__btn--cancel"
+            className="ghost-btn"
             onClick={onCancel}
             disabled={confirming}
           >
@@ -68,7 +68,7 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className="confirm-dialog__btn confirm-dialog__btn--confirm"
+            className="submit-btn confirm-dialog__confirm"
             onClick={onConfirm}
             disabled={confirming}
           >

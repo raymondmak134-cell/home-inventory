@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { MobileTopNav } from '../components/MobileTopNav'
+import { AppPage } from '../components/AppPage'
 
 export type FamilyMember = {
   id: string
@@ -61,10 +61,7 @@ export function FamilyManagementPage({
         family.id === familyId
           ? {
               ...family,
-              members: [
-                ...family.members,
-                { id: createId('member'), name },
-              ],
+              members: [...family.members, { id: createId('member'), name }],
             }
           : family,
       ),
@@ -86,15 +83,13 @@ export function FamilyManagementPage({
   }
 
   return (
-    <div className="profile-shell">
-      <MobileTopNav title="家庭管理" onBack={onBack} />
-
-      <main className="profile-shell__main profile-shell__main--form">
-        <section className="settings-section" aria-label="添加家庭">
-          <h2 className="settings-section__title">添加家庭</h2>
-          <div className="family-add-row">
-            <label className="settings-field settings-field--grow" htmlFor={familyNameId}>
-              <span className="settings-field__label">家庭名称</span>
+    <AppPage title="家庭管理" onBack={onBack}>
+      <section className="app-section" aria-label="添加家庭">
+        <h2 className="account-panel__title">添加家庭</h2>
+        <div className="app-inline-row">
+          <div className="field-block app-inline-row__grow">
+            <label className="field" htmlFor={familyNameId}>
+              <span className="sr-only">家庭名称</span>
               <input
                 id={familyNameId}
                 type="text"
@@ -103,82 +98,87 @@ export function FamilyManagementPage({
                 onChange={(event) => setNewFamilyName(event.target.value)}
               />
             </label>
-            <button type="button" className="settings-inline-btn" onClick={handleAddFamily}>
-              添加
-            </button>
           </div>
-        </section>
+          <button type="button" className="ghost-btn app-inline-row__btn" onClick={handleAddFamily}>
+            添加
+          </button>
+        </div>
+      </section>
 
-        <section className="settings-section" aria-label="家庭列表">
-          <h2 className="settings-section__title">我的家庭</h2>
+      <section className="app-section" aria-label="家庭列表">
+        <h2 className="account-panel__title">我的家庭</h2>
 
-          {families.length === 0 ? (
-            <p className="settings-empty">还没有家庭，先添加一个吧。</p>
-          ) : (
-            <ul className="family-list">
-              {families.map((family) => (
-                <li key={family.id} className="family-card">
-                  <div className="family-card__header">
-                    <p className="family-card__name">{family.name}</p>
+        {families.length === 0 ? (
+          <p className="boot-status app-empty">还没有家庭，先添加一个吧。</p>
+        ) : (
+          <ul className="family-list">
+            {families.map((family) => (
+              <li key={family.id} className="family-card">
+                <div className="family-card__header">
+                  <p className="admin-user__name">{family.name}</p>
+                  <button
+                    type="button"
+                    className="admin-panel__refresh is-danger"
+                    onClick={() => handleDeleteFamily(family.id)}
+                  >
+                    删除
+                  </button>
+                </div>
+
+                <div className="family-card__members">
+                  <p className="account-panel__meta">家庭成员</p>
+                  {family.members.length === 0 ? (
+                    <p className="boot-status app-empty app-empty--compact">暂无成员</p>
+                  ) : (
+                    <ul className="family-member-list">
+                      {family.members.map((member) => (
+                        <li key={member.id} className="family-member">
+                          <span>{member.name}</span>
+                          <button
+                            type="button"
+                            className="admin-panel__refresh is-danger"
+                            aria-label={`移除 ${member.name}`}
+                            onClick={() => handleRemoveMember(family.id, member.id)}
+                          >
+                            移除
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="app-inline-row app-inline-row--compact">
+                    <div className="field-block app-inline-row__grow">
+                      <label className="field">
+                        <span className="sr-only">成员昵称</span>
+                        <input
+                          type="text"
+                          value={memberDrafts[family.id] ?? ''}
+                          placeholder="成员昵称"
+                          aria-label={`为 ${family.name} 添加成员`}
+                          onChange={(event) =>
+                            setMemberDrafts((current) => ({
+                              ...current,
+                              [family.id]: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
                     <button
                       type="button"
-                      className="family-card__delete"
-                      onClick={() => handleDeleteFamily(family.id)}
+                      className="ghost-btn app-inline-row__btn"
+                      onClick={() => handleAddMember(family.id)}
                     >
-                      删除
+                      添加成员
                     </button>
                   </div>
-
-                  <div className="family-card__members">
-                    <p className="family-card__members-title">家庭成员</p>
-                    {family.members.length === 0 ? (
-                      <p className="settings-empty settings-empty--compact">暂无成员</p>
-                    ) : (
-                      <ul className="family-member-list">
-                        {family.members.map((member) => (
-                          <li key={member.id} className="family-member">
-                            <span>{member.name}</span>
-                            <button
-                              type="button"
-                              className="family-member__remove"
-                              aria-label={`移除 ${member.name}`}
-                              onClick={() => handleRemoveMember(family.id, member.id)}
-                            >
-                              移除
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    <div className="family-add-member-row">
-                      <input
-                        type="text"
-                        value={memberDrafts[family.id] ?? ''}
-                        placeholder="成员昵称"
-                        aria-label={`为 ${family.name} 添加成员`}
-                        onChange={(event) =>
-                          setMemberDrafts((current) => ({
-                            ...current,
-                            [family.id]: event.target.value,
-                          }))
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="settings-inline-btn"
-                        onClick={() => handleAddMember(family.id)}
-                      >
-                        添加成员
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
-    </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </AppPage>
   )
 }
