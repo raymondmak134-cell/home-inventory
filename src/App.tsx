@@ -33,7 +33,7 @@ export default function App() {
     <div className="login-page">
       <main className="login-shell">
         <header className="brand">
-          <img className="brand-logo" src="/logo.svg" width={72} height={66} alt="" />
+          <img className="brand-logo" src="/logo.svg" width={86} height={60} alt="" />
           <h1 className="brand-name">家仓</h1>
           <p className="brand-tagline">不必盲目加仓，好物存进家仓</p>
         </header>
@@ -43,6 +43,14 @@ export default function App() {
           role="tablist"
           aria-label="登录或注册"
         >
+          <span
+            className={
+              isLogin
+                ? 'mode-switch__thumb is-login'
+                : 'mode-switch__thumb is-register'
+            }
+            aria-hidden="true"
+          />
           <button
             type="button"
             role="tab"

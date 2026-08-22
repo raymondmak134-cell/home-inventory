@@ -1,8 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 43 40" fill="#3B82F6" role="img" aria-label="??">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 43 30" fill="#3B82F6" role="img" aria-label="??">
+  <!-- Single open-box logo (one mark only; no stacked second box) -->
   <path d="M12.5 0 0 7.9l12.5 7.9L25 7.9 12.5 0z"/>
   <path d="m30.5 0-12.5 7.9 12.5 7.9L43 7.9 30.5 0z"/>
   <path d="m0 21.5 12.5 7.9L25 21.5l-12.5-7.9L0 21.5z"/>
   <path d="m30.5 13.6-12.5 7.9 12.5 7.9 12.5-7.9-12.5-7.9z"/>
-  <path d="m12.5 24.2 12.5 7.9-12.5 7.9-12.5-7.9 12.5-7.9z"/>
-  <path d="m30.5 24.2 12.5 7.9-12.5 7.9-12.5-7.9 12.5-7.9z"/>
 </svg>
