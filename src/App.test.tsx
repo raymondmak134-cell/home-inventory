@@ -51,11 +51,27 @@ describe('登录页', () => {
     render(<App />)
 
     await user.click(screen.getByRole('tab', { name: '注册账号' }))
+    expect(screen.getByPlaceholderText('请再次确认密码')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '注册' }))
 
     expect(screen.getByText('请输入账号')).toBeVisible()
     expect(screen.getByText('请输入密码')).toBeVisible()
+    expect(screen.getByText('请确认密码')).toBeVisible()
     expect(screen.getByLabelText('账号')).toHaveAttribute('aria-invalid', 'true')
     expect(screen.getByLabelText('密码')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('确认密码')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('rejects mismatched confirm password on register', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('tab', { name: '注册账号' }))
+    await user.type(screen.getByLabelText('账号'), 'demo')
+    await user.type(screen.getByLabelText('密码'), 'abc12345')
+    await user.type(screen.getByLabelText('确认密码'), 'abc99999')
+    await user.click(screen.getByRole('button', { name: '注册' }))
+
+    expect(screen.getByText('两次输入的密码不一致')).toBeVisible()
   })
 })

@@ -7,29 +7,41 @@ type AuthMode = 'login' | 'register'
 type FieldErrors = {
   username?: string
   password?: string
+  confirmPassword?: string
 }
 
 export default function App() {
   const [mode, setMode] = useState<AuthMode>('login')
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const usernameId = useId()
   const passwordId = useId()
+  const confirmPasswordId = useId()
   const usernameErrorId = useId()
   const passwordErrorId = useId()
+  const confirmPasswordErrorId = useId()
 
-  function validate(): FieldErrors {
+  function validate(currentMode: AuthMode): FieldErrors {
     const next: FieldErrors = {}
     if (!username.trim()) next.username = '请输入账号'
     if (!password.trim()) next.password = '请输入密码'
+    if (currentMode === 'register') {
+      if (!confirmPassword.trim()) {
+        next.confirmPassword = '请确认密码'
+      } else if (confirmPassword !== password) {
+        next.confirmPassword = '两次输入的密码不一致'
+      }
+    }
     return next
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const next = validate()
+    const next = validate(mode)
     setErrors(next)
     if (Object.keys(next).length > 0) return
     // Auth wiring comes later.
@@ -39,6 +51,8 @@ export default function App() {
     setMode(next)
     setErrors({})
     setShowPassword(false)
+    setShowConfirmPassword(false)
+    setConfirmPassword('')
     if (next === 'register') {
       setUsername('')
       setPassword('')
@@ -47,8 +61,10 @@ export default function App() {
 
   const isLogin = mode === 'login'
   const passwordInputType = showPassword ? 'text' : 'password'
+  const confirmPasswordInputType = showConfirmPassword ? 'text' : 'password'
   const usernameInvalid = Boolean(errors.username)
   const passwordInvalid = Boolean(errors.password)
+  const confirmPasswordInvalid = Boolean(errors.confirmPassword)
 
   return (
     <div className="login-page">
@@ -151,15 +167,22 @@ export default function App() {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                enterKeyHint="done"
+                enterKeyHint={isLogin ? 'done' : 'next'}
                 placeholder="请输入密码"
                 value={password}
                 aria-invalid={passwordInvalid}
                 aria-describedby={passwordErrorId}
                 onChange={(event) => {
                   setPassword(event.target.value)
-                  if (errors.password) {
-                    setErrors((current) => ({ ...current, password: undefined }))
+                  if (errors.password || errors.confirmPassword) {
+                    setErrors((current) => ({
+                      ...current,
+                      password: undefined,
+                      confirmPassword:
+                        current.confirmPassword === '两次输入的密码不一致'
+                          ? undefined
+                          : current.confirmPassword,
+                    }))
                   }
                 }}
               />
@@ -181,6 +204,62 @@ export default function App() {
               {errors.password ?? ''}
             </p>
           </div>
+
+          {!isLogin ? (
+            <div className="field-block">
+              <label
+                className={confirmPasswordInvalid ? 'field is-error' : 'field'}
+                htmlFor={confirmPasswordId}
+              >
+                <span className="sr-only">确认密码</span>
+                <span className="field__icon" aria-hidden="true">
+                  <LockIcon />
+                </span>
+                <input
+                  id={confirmPasswordId}
+                  name="confirmPassword"
+                  type={confirmPasswordInputType}
+                  inputMode="text"
+                  autoComplete="new-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="done"
+                  placeholder="请再次确认密码"
+                  value={confirmPassword}
+                  aria-invalid={confirmPasswordInvalid}
+                  aria-describedby={confirmPasswordErrorId}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value)
+                    if (errors.confirmPassword) {
+                      setErrors((current) => ({
+                        ...current,
+                        confirmPassword: undefined,
+                      }))
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="field__action"
+                  aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
+                  aria-pressed={showConfirmPassword}
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                >
+                  {showConfirmPassword ? <EyeIcon /> : <EyeOffIcon />}
+                </button>
+              </label>
+              <p
+                id={confirmPasswordErrorId}
+                className={
+                  confirmPasswordInvalid ? 'field-error is-visible' : 'field-error'
+                }
+                role={confirmPasswordInvalid ? 'alert' : undefined}
+              >
+                {errors.confirmPassword ?? ''}
+              </p>
+            </div>
+          ) : null}
 
           <button type="submit" className="submit-btn">
             {isLogin ? '登录' : '注册'}
