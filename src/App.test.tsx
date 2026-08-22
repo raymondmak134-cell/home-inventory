@@ -435,6 +435,31 @@ describe('登录页', () => {
     expect(screen.queryByRole('button', { name: '上传头像' })).not.toBeInTheDocument()
   })
 
+  it('opens the scan-in bottom sheet from the empty warehouse CTA', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      me: {
+        id: 1,
+        username: 'demo',
+        role: 'user',
+        createdAt: '2026-01-01 00:00:00',
+      },
+    })
+    renderApp()
+
+    await user.click(await screen.findByRole('button', { name: '入库家里第一件物品' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '扫码入库' })
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getByText('请扫描商品包装上的条形码快速入库')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '无条形码？手动添加' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '关闭' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '扫码入库' })).not.toBeInTheDocument()
+    })
+  })
+
   it('reuses login-style validation on the change-password form', async () => {
     const user = userEvent.setup()
     mockAuthApis({

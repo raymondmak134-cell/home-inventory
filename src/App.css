@@ -678,7 +678,9 @@
   .top-nav,
   .empty-warehouse__copy,
   .empty-warehouse__action,
-  .slide-page {
+  .slide-page,
+  .scan-sheet__backdrop,
+  .scan-sheet__panel {
     animation: none;
     transition: none;
   }
@@ -996,6 +998,139 @@
 
 .app-page .admin-panel {
   margin-top: 0;
+}
+
+/* —— 扫码入库底部弹窗 —— */
+.scan-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.scan-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  transition: opacity 240ms ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scan-sheet.is-open .scan-sheet__backdrop {
+  opacity: 1;
+}
+
+.scan-sheet__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  transform: translateY(100%);
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.scan-sheet.is-open .scan-sheet__panel {
+  transform: translateY(0);
+}
+
+.scan-sheet__header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  padding: 0.5rem 3.5rem 0;
+}
+
+.scan-sheet__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.scan-sheet__close {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  appearance: none;
+  border: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.scan-sheet__close:hover,
+.scan-sheet__close:focus-visible {
+  color: #111827;
+  background: #f3f4f6;
+}
+
+/* 标题栏下 40px；宽度距屏幕两侧各 40px 的 1:1 扫码框 */
+.scan-sheet__frame {
+  position: relative;
+  width: min(calc(100vw - 80px), 22rem);
+  aspect-ratio: 1 / 1;
+  margin: 2.5rem auto 0;
+  border-radius: 1rem;
+  background: #111827;
+  overflow: hidden;
+}
+
+.scan-sheet__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scan-sheet__camera-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0 1.5rem;
+  text-align: center;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+}
+
+.scan-sheet__caption {
+  margin: 1rem 0 0;
+  text-align: center;
+  font-size: 0.92rem;
+  color: #6b7280;
+}
+
+.scan-sheet__manual {
+  display: block;
+  margin: 1.5rem auto 0;
+  appearance: none;
+  border: 0;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #4096ff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .confirm-dialog {
