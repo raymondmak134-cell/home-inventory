@@ -439,7 +439,7 @@
   margin-top: 0.35rem;
   min-height: 3.35rem;
   border-radius: 0.85rem;
-  background: #3b82f6;
+  background: #0c141f;
   color: #ffffff;
   font-size: 1.05rem;
   font-weight: 600;
@@ -462,7 +462,7 @@
 }
 
 .submit-btn:active {
-  background: #2563eb;
+  background: #070b12;
   transform: scale(0.995);
 }
 
