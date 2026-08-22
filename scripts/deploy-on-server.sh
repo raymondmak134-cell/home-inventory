@@ -9,6 +9,7 @@ WEB_ROOT="${WEB_ROOT:-/var/www/jiawucang}"
 DATA_DIR="${DATA_DIR:-/var/lib/jiawucang}"
 API_PORT="${API_PORT:-3000}"
 SERVICE_NAME="${SERVICE_NAME:-jiawucang-api}"
+DOMAIN="${DOMAIN:-jiacang.site}"
 
 install_base_packages() {
   if command -v apt-get >/dev/null 2>&1; then
@@ -91,12 +92,9 @@ EOF
 }
 
 configure_nginx() {
-  local conf_body
-  conf_body=$(cat <<EOF
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
+  local cert_dir="/etc/letsencrypt/live/${DOMAIN}"
+  local site_locations
+  site_locations=$(cat <<EOF
     root ${WEB_ROOT};
     index index.html;
 
@@ -112,9 +110,58 @@ server {
     location / {
         try_files \$uri \$uri/ /index.html;
     }
+EOF
+)
+
+  local conf_body
+  if [ -f "${cert_dir}/fullchain.pem" ] && [ -f "${cert_dir}/privkey.pem" ]; then
+    # 有证书：域名 80 跳转 HTTPS，域名 443 提供服务；IP 直连仍走 80。
+    local ssl_extra=""
+    if [ -f /etc/letsencrypt/options-ssl-nginx.conf ]; then
+      ssl_extra="    include /etc/letsencrypt/options-ssl-nginx.conf;"
+    fi
+    if [ -f /etc/letsencrypt/ssl-dhparams.pem ]; then
+      ssl_extra="${ssl_extra}
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;"
+    fi
+    conf_body=$(cat <<EOF
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+${site_locations}
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN} www.${DOMAIN};
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN} www.${DOMAIN};
+    ssl_certificate ${cert_dir}/fullchain.pem;
+    ssl_certificate_key ${cert_dir}/privkey.pem;
+${ssl_extra}
+${site_locations}
 }
 EOF
 )
+  else
+    conf_body=$(cat <<EOF
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+${site_locations}
+}
+EOF
+)
+  fi
 
   # Avoid duplicate :80 default servers from distro nginx.conf.
   if [ -f /etc/nginx/nginx.conf ]; then
@@ -209,7 +256,9 @@ configure_nginx
 PUBLIC_IP="$(curl -fsS --max-time 3 ifconfig.me 2>/dev/null || true)"
 echo
 echo "Deploy finished."
-if [ -n "$PUBLIC_IP" ]; then
+if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+  echo "Open: https://${DOMAIN}/"
+elif [ -n "$PUBLIC_IP" ]; then
   echo "Open: http://${PUBLIC_IP}/"
 else
   echo "Open: http://YOUR_PUBLIC_IP/"
