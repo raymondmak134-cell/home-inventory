@@ -7,6 +7,9 @@ import {
   registerAccount,
   type PublicUser,
 } from './api/auth'
+import {
+  validateRegisterPassword,
+} from './validation/password'
 import './App.css'
 
 type AuthMode = 'login' | 'register'
@@ -57,15 +60,45 @@ export default function App() {
   function validate(currentMode: AuthMode): FieldErrors {
     const next: FieldErrors = {}
     if (!username.trim()) next.username = '请输入账号'
-    if (!password.trim()) next.password = '请输入密码'
     if (currentMode === 'register') {
+      const passwordError = validateRegisterPassword(password)
+      if (passwordError) next.password = passwordError
       if (!confirmPassword.trim()) {
         next.confirmPassword = '请确认密码'
       } else if (confirmPassword !== password) {
         next.confirmPassword = '两次输入的密码不一致'
       }
+    } else if (!password.trim()) {
+      next.password = '请输入密码'
     }
     return next
+  }
+
+  function syncRegisterPasswordErrors(
+    nextPassword: string,
+    nextConfirmPassword: string,
+  ) {
+    setErrors((current) => {
+      const passwordError = validateRegisterPassword(nextPassword, {
+        allowEmpty: true,
+      })
+      let confirmPasswordError: string | undefined
+      if (!nextConfirmPassword) {
+        confirmPasswordError =
+          current.confirmPassword === '请确认密码'
+            ? current.confirmPassword
+            : undefined
+      } else if (nextConfirmPassword !== nextPassword) {
+        confirmPasswordError = '两次输入的密码不一致'
+      }
+
+      return {
+        ...current,
+        password: passwordError ?? undefined,
+        confirmPassword: confirmPasswordError,
+        form: undefined,
+      }
+    })
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -294,17 +327,19 @@ export default function App() {
                 value={password}
                 aria-invalid={passwordInvalid}
                 aria-describedby={passwordErrorId}
+                maxLength={isLogin ? undefined : 20}
                 onChange={(event) => {
-                  setPassword(event.target.value)
-                  if (errors.password || errors.confirmPassword || errors.form) {
+                  const nextPassword = event.target.value
+                  setPassword(nextPassword)
+                  if (mode === 'register') {
+                    syncRegisterPasswordErrors(nextPassword, confirmPassword)
+                    return
+                  }
+                  if (errors.password || errors.form) {
                     setErrors((current) => ({
                       ...current,
                       password: undefined,
                       form: undefined,
-                      confirmPassword:
-                        current.confirmPassword === '两次输入的密码不一致'
-                          ? undefined
-                          : current.confirmPassword,
                     }))
                   }
                 }}
@@ -352,14 +387,11 @@ export default function App() {
                   value={confirmPassword}
                   aria-invalid={confirmPasswordInvalid}
                   aria-describedby={confirmPasswordErrorId}
+                  maxLength={20}
                   onChange={(event) => {
-                    setConfirmPassword(event.target.value)
-                    if (errors.confirmPassword) {
-                      setErrors((current) => ({
-                        ...current,
-                        confirmPassword: undefined,
-                      }))
-                    }
+                    const nextConfirmPassword = event.target.value
+                    setConfirmPassword(nextConfirmPassword)
+                    syncRegisterPasswordErrors(password, nextConfirmPassword)
                   }}
                 />
                 <button

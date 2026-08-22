@@ -142,6 +142,27 @@ describe('登录页', () => {
     expect(screen.getByText('两次输入的密码不一致')).toBeVisible()
   })
 
+  it('validates register password rule in realtime', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('button', { name: '登录' })
+
+    await user.click(screen.getByRole('tab', { name: '注册账号' }))
+    await user.type(screen.getByLabelText('密码'), 'abc')
+
+    expect(screen.getByText('密码需为8-20位字母和数字组合')).toBeVisible()
+    expect(screen.getByLabelText('密码')).toHaveAttribute('aria-invalid', 'true')
+
+    await user.clear(screen.getByLabelText('密码'))
+    await user.type(screen.getByLabelText('密码'), 'abcdefgh')
+    expect(screen.getByText('密码需为8-20位字母和数字组合')).toBeVisible()
+
+    await user.clear(screen.getByLabelText('密码'))
+    await user.type(screen.getByLabelText('密码'), 'abc12345')
+    expect(screen.queryByText('密码需为8-20位字母和数字组合')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('密码')).toHaveAttribute('aria-invalid', 'false')
+  })
+
   it('logs in through the API and shows the account panel', async () => {
     const user = userEvent.setup()
     mockAuthApis({

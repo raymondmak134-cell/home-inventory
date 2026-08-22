@@ -33,7 +33,7 @@ describe('auth api', () => {
     const register = await app.request('/api/auth/register', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: '小明', password: 'secret1' }),
+      body: JSON.stringify({ username: '小明', password: 'secret12' }),
     })
     expect(register.status).toBe(201)
     const registerBody = (await register.json()) as {
@@ -68,15 +68,28 @@ describe('auth api', () => {
     await app.request('/api/auth/register', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'demo', password: 'secret1' }),
+      body: JSON.stringify({ username: 'demo', password: 'secret12' }),
     })
 
     const duplicate = await app.request('/api/auth/register', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'Demo', password: 'secret2' }),
+      body: JSON.stringify({ username: 'Demo', password: 'secret99' }),
     })
     expect(duplicate.status).toBe(409)
+
+    const weakPassword = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'weak', password: 'abc' }),
+    })
+    expect(weakPassword.status).toBe(400)
+    expect(await weakPassword.json()).toMatchObject({
+      error: {
+        field: 'password',
+        message: '密码需为8-20位字母和数字组合',
+      },
+    })
 
     const badLogin = await app.request('/api/auth/login', {
       method: 'POST',
@@ -88,7 +101,7 @@ describe('auth api', () => {
     const goodLogin = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username: 'demo', password: 'secret1' }),
+      body: JSON.stringify({ username: 'demo', password: 'secret12' }),
     })
     expect(goodLogin.status).toBe(200)
     expect(cookieFrom(goodLogin)).toBeTruthy()
