@@ -136,7 +136,9 @@ export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
           />
           {cameraError ? (
             <p className="scan-sheet__camera-hint">{cameraError}</p>
-          ) : null}
+          ) : (
+            <BarcodeHintIcon />
+          )}
         </div>
 
         <p className="scan-sheet__caption">请扫描商品包装上的条形码快速入库</p>
@@ -328,6 +330,35 @@ async function tuneCameraTrack(track: MediaStreamTrack | undefined) {
   } catch {
     // 能力协商失败时保留默认画面，不影响预览
   }
+}
+
+/** 扫码框中央的半透明条形码占位图标，提示对准条形码 */
+function BarcodeHintIcon() {
+  return (
+    <svg
+      className="scan-sheet__barcode-hint"
+      viewBox="0 0 120 64"
+      aria-hidden="true"
+    >
+      <g fill="currentColor">
+        <rect x="0" y="0" width="5" height="64" />
+        <rect x="9" y="0" width="2.5" height="64" />
+        <rect x="16" y="0" width="6.5" height="64" />
+        <rect x="27" y="0" width="2.5" height="64" />
+        <rect x="33" y="0" width="4" height="64" />
+        <rect x="42" y="0" width="2.5" height="64" />
+        <rect x="49" y="0" width="7.5" height="64" />
+        <rect x="60" y="0" width="2.5" height="64" />
+        <rect x="66" y="0" width="4" height="64" />
+        <rect x="75" y="0" width="6.5" height="64" />
+        <rect x="85" y="0" width="2.5" height="64" />
+        <rect x="91" y="0" width="4" height="64" />
+        <rect x="99" y="0" width="2.5" height="64" />
+        <rect x="105" y="0" width="6.5" height="64" />
+        <rect x="115" y="0" width="5" height="64" />
+      </g>
+    </svg>
+  )
 }
 
 function CloseIcon() {

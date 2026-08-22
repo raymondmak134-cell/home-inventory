@@ -1099,6 +1099,17 @@
   display: block;
 }
 
+.scan-sheet__barcode-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 45%;
+  height: auto;
+  transform: translate(-50%, -50%);
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
 .scan-sheet__camera-hint {
   position: absolute;
   inset: 0;
