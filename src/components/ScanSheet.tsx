@@ -332,7 +332,10 @@ async function tuneCameraTrack(track: MediaStreamTrack | undefined) {
   }
 }
 
-/** 扫码框中央的半透明条形码占位图标，提示对准条形码 */
+/**
+ * 扫码框中央的半透明条形码占位图标（按 EAN 条形码特征绘制）：
+ * 数据条粗细不一且较短；起始、中间、末端各有两条更长的细护线。
+ */
 function BarcodeHintIcon() {
   return (
     <svg
@@ -341,21 +344,37 @@ function BarcodeHintIcon() {
       aria-hidden="true"
     >
       <g fill="currentColor">
-        <rect x="0" y="0" width="5" height="64" />
-        <rect x="9" y="0" width="2.5" height="64" />
-        <rect x="16" y="0" width="6.5" height="64" />
-        <rect x="27" y="0" width="2.5" height="64" />
-        <rect x="33" y="0" width="4" height="64" />
-        <rect x="42" y="0" width="2.5" height="64" />
-        <rect x="49" y="0" width="7.5" height="64" />
-        <rect x="60" y="0" width="2.5" height="64" />
-        <rect x="66" y="0" width="4" height="64" />
-        <rect x="75" y="0" width="6.5" height="64" />
-        <rect x="85" y="0" width="2.5" height="64" />
-        <rect x="91" y="0" width="4" height="64" />
-        <rect x="99" y="0" width="2.5" height="64" />
-        <rect x="105" y="0" width="6.5" height="64" />
-        <rect x="115" y="0" width="5" height="64" />
+        {/* 起始护线（两条长细线） */}
+        <rect x="0" y="0" width="2" height="64" />
+        <rect x="4" y="0" width="2" height="64" />
+        {/* 左侧数据条（粗细不一，较短） */}
+        <rect x="8" y="0" width="3" height="56" />
+        <rect x="13" y="0" width="1.5" height="56" />
+        <rect x="17" y="0" width="4.5" height="56" />
+        <rect x="24" y="0" width="2" height="56" />
+        <rect x="28" y="0" width="1.5" height="56" />
+        <rect x="32" y="0" width="5" height="56" />
+        <rect x="39" y="0" width="2" height="56" />
+        <rect x="43" y="0" width="3.5" height="56" />
+        <rect x="49" y="0" width="1.5" height="56" />
+        <rect x="52" y="0" width="2.5" height="56" />
+        {/* 中间护线（两条长细线） */}
+        <rect x="57" y="0" width="2" height="64" />
+        <rect x="61" y="0" width="2" height="64" />
+        {/* 右侧数据条（粗细不一，较短） */}
+        <rect x="65" y="0" width="3.5" height="56" />
+        <rect x="70" y="0" width="1.5" height="56" />
+        <rect x="74" y="0" width="5" height="56" />
+        <rect x="81" y="0" width="2" height="56" />
+        <rect x="85" y="0" width="3" height="56" />
+        <rect x="90" y="0" width="1.5" height="56" />
+        <rect x="94" y="0" width="4.5" height="56" />
+        <rect x="101" y="0" width="2" height="56" />
+        <rect x="105" y="0" width="1.5" height="56" />
+        <rect x="108.5" y="0" width="3" height="56" />
+        {/* 末端护线（两条长细线） */}
+        <rect x="114" y="0" width="2" height="64" />
+        <rect x="118" y="0" width="2" height="64" />
       </g>
     </svg>
   )
