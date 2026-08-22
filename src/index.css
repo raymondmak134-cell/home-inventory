@@ -9,10 +9,14 @@ body {
   margin: 0;
 }
 
-main {
+.app {
   max-width: 40rem;
   margin: 0 auto;
   padding: 2rem 1.25rem;
+}
+
+.app__header {
+  margin-bottom: 1.5rem;
 }
 
 h1 {
@@ -21,7 +25,101 @@ h1 {
   font-weight: 600;
 }
 
+h2 {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
 p {
   margin: 0;
   color: #555;
+}
+
+.card {
+  padding: 1.25rem;
+  border: 1px solid #ddd;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.barcode-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.barcode-form__row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.barcode-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+.barcode-form button {
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.barcode-form button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.message {
+  margin-top: 1rem;
+}
+
+.message--error {
+  color: #b91c1c;
+}
+
+.product {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+}
+
+.product div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.product dt {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.product dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.product__image {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}
+
+.hint {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+code {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: #e5e7eb;
+  font-size: 0.875em;
 }
