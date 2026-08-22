@@ -1,4 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="8" fill="#333"/>
-  <path d="M18 40V26l14-8 14 8v14l-14 8-14-8Z" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 108" role="img" aria-label="家仓">
+  <g fill="#4096FF" stroke="#4096FF" stroke-width="0.85" stroke-linejoin="round">
+    <polygon points="60,6 24,34 44,52 60,38" />
+    <polygon points="60,6 96,34 76,52 60,38" />
+    <polygon points="24,34 24,72 44,70 44,52" />
+    <polygon points="96,34 96,72 76,70 76,52" />
+    <polygon points="24,72 60,102 96,72 76,70 44,70" />
+  </g>
 </svg>

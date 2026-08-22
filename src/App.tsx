@@ -33,7 +33,7 @@ export default function App() {
     <div className="login-page">
       <main className="login-shell">
         <header className="brand">
-          <img className="brand-logo" src="/logo.svg" width={86} height={60} alt="" />
+          <img className="brand-logo" src="/logo.svg" width={78} height={70} alt="" />
           <h1 className="brand-name">家仓</h1>
           <p className="brand-tagline">不必盲目加仓，好物存进家仓</p>
         </header>
