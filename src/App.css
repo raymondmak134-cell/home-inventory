@@ -749,10 +749,15 @@
   overflow: hidden;
 }
 
+.slide-stack:not(.is-active) {
+  content-visibility: hidden;
+}
+
 .slide-stack.is-active {
   transform: translateX(0);
   visibility: visible;
   pointer-events: auto;
+  content-visibility: visible;
 }
 
 .slide-page {

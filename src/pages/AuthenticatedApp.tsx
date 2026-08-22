@@ -69,42 +69,46 @@ export function AuthenticatedApp({
       <HomePage onOpenAccount={openProfile} />
 
       <SlideStack active={profileOpen} direction={direction}>
-        <SlidePage visible={route === 'profile'} direction={direction}>
-          <ProfilePage
-            user={user}
-            nickname={nickname}
-            avatarUrl={avatarUrl}
-            onNavigate={openSubPage}
-            onBack={goBack}
-            onLogoutRequest={() => setLogoutOpen(true)}
-          />
-        </SlidePage>
+        {profileOpen ? (
+          <>
+            <SlidePage visible={route === 'profile'} direction={direction}>
+              <ProfilePage
+                user={user}
+                nickname={nickname}
+                avatarUrl={avatarUrl}
+                onNavigate={openSubPage}
+                onBack={goBack}
+                onLogoutRequest={() => setLogoutOpen(true)}
+              />
+            </SlidePage>
 
-        <SlidePage visible={route === 'account-settings'} direction={direction}>
-          <AccountSettingsPage
-            nickname={nickname}
-            avatarUrl={avatarUrl}
-            onBack={goBack}
-            onSave={handleSaveProfile}
-          />
-        </SlidePage>
+            <SlidePage visible={route === 'account-settings'} direction={direction}>
+              <AccountSettingsPage
+                nickname={nickname}
+                avatarUrl={avatarUrl}
+                onBack={goBack}
+                onSave={handleSaveProfile}
+              />
+            </SlidePage>
 
-        <SlidePage visible={route === 'family'} direction={direction}>
-          <FamilyManagementPage
-            families={families}
-            onBack={goBack}
-            onChange={setFamilies}
-          />
-        </SlidePage>
+            <SlidePage visible={route === 'family'} direction={direction}>
+              <FamilyManagementPage
+                families={families}
+                onBack={goBack}
+                onChange={setFamilies}
+              />
+            </SlidePage>
 
-        {user.role === 'admin' ? (
-          <SlidePage visible={route === 'admin-users'} direction={direction}>
-            <AdminUsersPage
-              user={user}
-              onBack={goBack}
-              onUserUpdated={onUserUpdated}
-            />
-          </SlidePage>
+            {user.role === 'admin' ? (
+              <SlidePage visible={route === 'admin-users'} direction={direction}>
+                <AdminUsersPage
+                  user={user}
+                  onBack={goBack}
+                  onUserUpdated={onUserUpdated}
+                />
+              </SlidePage>
+            ) : null}
+          </>
         ) : null}
       </SlideStack>
 

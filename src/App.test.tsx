@@ -224,6 +224,31 @@ describe('登录页', () => {
     ).toBeInTheDocument()
   })
 
+  it('shows home page after admin login instead of account management', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      login: {
+        user: {
+          id: 2,
+          username: '13424330500',
+          role: 'admin',
+          createdAt: '2026-01-01 00:00:00',
+        },
+      },
+    })
+    render(<App />)
+    await screen.findByRole('button', { name: '登录' })
+
+    await user.clear(screen.getByLabelText('账号'))
+    await user.type(screen.getByLabelText('账号'), '13424330500')
+    await user.type(screen.getByLabelText('密码'), 'secret1')
+    await user.click(screen.getByRole('button', { name: '登录' }))
+
+    expect(await screen.findByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '账号管理', level: 1 })).not.toBeInTheDocument()
+    expect(screen.queryByText('账号已登录')).not.toBeInTheDocument()
+  })
+
   it('opens profile page from avatar and admin account management', async () => {
     const user = userEvent.setup()
     mockAuthApis({
