@@ -60,40 +60,8 @@ export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
         if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error('camera-unsupported')
         }
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-          audio: false,
-        })
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop())
-          return
-        }
-
-        // 多后摄机型（如 OPPO Find X8 Ultra）environment 可能命中长焦/微距，
-        // 授权后按能力挑选主摄并切换。
-        const preferredId = await pickMainRearCameraId(
-          stream.getVideoTracks()[0]?.getSettings().deviceId,
-        )
-        if (preferredId && !cancelled) {
-          const next = await navigator.mediaDevices
-            .getUserMedia({
-              video: {
-                deviceId: { exact: preferredId },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-              audio: false,
-            })
-            .catch(() => null)
-          if (next) {
-            stream.getTracks().forEach((track) => track.stop())
-            stream = next
-          }
-        }
+        stream = await openScanCameraStream(() => cancelled)
+        if (!stream) return
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop())
           return
@@ -185,6 +153,86 @@ export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
 type ExtendedCapabilities = MediaTrackCapabilities & {
   zoom?: { min?: number; max?: number }
   focusMode?: string[]
+}
+
+/**
+ * 本次页面会话内选定的扫码摄像头：
+ * undefined = 尚未探测；null = 探测过、直接用默认 environment；string = 主摄 deviceId。
+ * 缓存后重开弹窗只做一次取流，避免「探测流 + 主摄流」先后开启的切换过程。
+ */
+let cachedScanCameraId: string | null | undefined
+
+function scanVideoConstraints(deviceId?: string | null): MediaStreamConstraints {
+  return {
+    video: deviceId
+      ? {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        }
+      : {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+    audio: false,
+  }
+}
+
+function waitMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * 打开扫码用摄像头流。
+ * 首次打开：先用 environment 探测（拿授权和设备标签），选出主摄后
+ * 「先停止探测流、稍等释放、再开主摄流」——两路相机流并行会卡住部分
+ * 机型（如 OPPO Find X8 Ultra）的相机服务，导致之后取流一直黑屏。
+ * 之后打开：直接用缓存的主摄 deviceId 一次取流；失效则回退重探测。
+ */
+async function openScanCameraStream(
+  isCancelled: () => boolean,
+): Promise<MediaStream | null> {
+  if (cachedScanCameraId !== undefined) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(
+        scanVideoConstraints(cachedScanCameraId),
+      )
+    } catch {
+      // deviceId 失效（如权限重置）：清缓存走重新探测
+      cachedScanCameraId = undefined
+    }
+  }
+
+  const probe = await navigator.mediaDevices.getUserMedia(scanVideoConstraints(null))
+  if (isCancelled()) {
+    probe.getTracks().forEach((track) => track.stop())
+    return null
+  }
+
+  const preferredId = await pickMainRearCameraId(
+    probe.getVideoTracks()[0]?.getSettings().deviceId,
+  )
+  if (!preferredId) {
+    cachedScanCameraId = null
+    return probe
+  }
+
+  // 先释放探测流，等相机服务归还硬件后再开主摄流
+  probe.getTracks().forEach((track) => track.stop())
+  await waitMs(200)
+  if (isCancelled()) return null
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(
+      scanVideoConstraints(preferredId),
+    )
+    cachedScanCameraId = preferredId
+    return stream
+  } catch {
+    cachedScanCameraId = null
+    return navigator.mediaDevices.getUserMedia(scanVideoConstraints(null))
+  }
 }
 
 /** 副摄关键词：长焦 / 微距 / 超广角 / 景深等，扫码应避开 */
