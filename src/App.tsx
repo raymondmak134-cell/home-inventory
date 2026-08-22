@@ -7,6 +7,7 @@ import {
   registerAccount,
   type PublicUser,
 } from './api/auth'
+import { AdminUserManager } from './components/AdminUserManager'
 import {
   validateRegisterPassword,
 } from './validation/password'
@@ -177,7 +178,7 @@ export default function App() {
   if (user) {
     return (
       <div className="login-page">
-        <main className="login-shell">
+        <main className={user.role === 'admin' ? 'login-shell is-wide' : 'login-shell'}>
           <header className="brand">
             <img className="brand-logo" src="/logo.svg" width={78} height={70} alt="" />
             <h1 className="brand-name">家仓</h1>
@@ -188,6 +189,7 @@ export default function App() {
             <h2 className="account-panel__title">账号已登录</h2>
             <p className="account-panel__name">{user.username}</p>
             <p className="account-panel__meta">
+              {user.role === 'admin' ? '管理员 · ' : ''}
               注册于 {formatCreatedAt(user.createdAt)}
             </p>
             <button
@@ -199,6 +201,13 @@ export default function App() {
               退出登录
             </button>
           </section>
+
+          {user.role === 'admin' ? (
+            <AdminUserManager
+              currentUser={user}
+              onUserUpdated={setUser}
+            />
+          ) : null}
         </main>
       </div>
     )

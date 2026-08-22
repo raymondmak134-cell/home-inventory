@@ -1,13 +1,16 @@
+export type UserRole = 'admin' | 'user'
+
 export type PublicUser = {
   id: number
   username: string
+  role: UserRole
   createdAt: string
 }
 
 export type AuthError = {
   code: string
   message: string
-  field?: 'username' | 'password' | 'confirmPassword'
+  field?: 'username' | 'password' | 'confirmPassword' | 'role'
 }
 
 type AuthSuccess = { user: PublicUser }

@@ -76,6 +76,7 @@ Environment=PORT=${API_PORT}
 Environment=DATABASE_PATH=${DATA_DIR}/jiawucang.sqlite
 Environment=SESSION_SECRET=${session_secret}
 Environment=SECURE_COOKIES=false
+Environment=ADMIN_USERNAME=13424330500
 ExecStart=$(command -v pnpm) start
 Restart=on-failure
 RestartSec=3

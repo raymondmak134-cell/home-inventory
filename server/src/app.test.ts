@@ -6,6 +6,7 @@ import { createApp } from './app.ts'
 import { createDatabase } from './db.ts'
 
 process.env.SESSION_SECRET = 'test-session-secret-at-least-16'
+process.env.ADMIN_USERNAME = '13424330500'
 
 function cookieFrom(response: Response): string | undefined {
   const headers = response.headers.getSetCookie?.() ?? []
@@ -37,9 +38,10 @@ describe('auth api', () => {
     })
     expect(register.status).toBe(201)
     const registerBody = (await register.json()) as {
-      user: { username: string }
+      user: { username: string; role: string }
     }
     expect(registerBody.user.username).toBe('小明')
+    expect(registerBody.user.role).toBe('user')
 
     const cookie = cookieFrom(register)
     expect(cookie).toBeTruthy()
@@ -105,5 +107,65 @@ describe('auth api', () => {
     })
     expect(goodLogin.status).toBe(200)
     expect(cookieFrom(goodLogin)).toBeTruthy()
+  })
+
+  it('promotes configured admin and allows account management', async () => {
+    const adminRegister = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: '13424330500', password: 'secret12' }),
+    })
+    expect(adminRegister.status).toBe(201)
+    const adminBody = (await adminRegister.json()) as {
+      user: { role: string; id: number }
+    }
+    expect(adminBody.user.role).toBe('admin')
+    const adminCookie = cookieFrom(adminRegister)!
+
+    const userRegister = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: 'member01', password: 'secret12' }),
+    })
+    const member = (await userRegister.json()) as { user: { id: number } }
+
+    const forbidden = await app.request('/api/admin/users', {
+      headers: { cookie: cookieFrom(userRegister)! },
+    })
+    expect(forbidden.status).toBe(403)
+
+    const list = await app.request('/api/admin/users', {
+      headers: { cookie: adminCookie },
+    })
+    expect(list.status).toBe(200)
+    const listed = (await list.json()) as { users: Array<{ username: string }> }
+    expect(listed.users.map((user) => user.username)).toEqual(
+      expect.arrayContaining(['13424330500', 'member01']),
+    )
+
+    const patched = await app.request(`/api/admin/users/${member.user.id}`, {
+      method: 'PATCH',
+      headers: {
+        cookie: adminCookie,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ username: 'member02', password: 'secret99' }),
+    })
+    expect(patched.status).toBe(200)
+    expect(((await patched.json()) as { user: { username: string } }).user.username).toBe(
+      'member02',
+    )
+
+    const deleted = await app.request(`/api/admin/users/${member.user.id}`, {
+      method: 'DELETE',
+      headers: { cookie: adminCookie },
+    })
+    expect(deleted.status).toBe(200)
+
+    const selfDelete = await app.request(`/api/admin/users/${adminBody.user.id}`, {
+      method: 'DELETE',
+      headers: { cookie: adminCookie },
+    })
+    expect(selfDelete.status).toBe(400)
   })
 })

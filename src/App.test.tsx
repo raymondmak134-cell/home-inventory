@@ -10,13 +10,14 @@ afterEach(() => {
 })
 
 function mockAuthApis(options?: {
-  me?: { id: number; username: string; createdAt: string } | null
+  me?: { id: number; username: string; role?: 'admin' | 'user'; createdAt: string } | null
   login?:
-    | { user: { id: number; username: string; createdAt: string } }
+    | { user: { id: number; username: string; role?: 'admin' | 'user'; createdAt: string } }
     | { error: { code: string; message: string; field?: string } }
   register?:
-    | { user: { id: number; username: string; createdAt: string } }
+    | { user: { id: number; username: string; role?: 'admin' | 'user'; createdAt: string } }
     | { error: { code: string; message: string; field?: string } }
+  users?: Array<{ id: number; username: string; role: 'admin' | 'user'; createdAt: string }>
 }) {
   const me = options?.me === undefined ? null : options.me
   vi.stubGlobal(
@@ -30,14 +31,22 @@ function mockAuthApis(options?: {
             headers: { 'content-type': 'application/json' },
           })
         }
-        return new Response(JSON.stringify({ user: me }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
+        return new Response(
+          JSON.stringify({ user: { role: 'user', ...me } }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        )
       }
       if (url.endsWith('/api/auth/login')) {
         const body = options?.login ?? {
-          user: { id: 1, username: 'admin', createdAt: '2026-01-01 00:00:00' },
+          user: {
+            id: 1,
+            username: 'admin',
+            role: 'user',
+            createdAt: '2026-01-01 00:00:00',
+          },
         }
         const ok = 'user' in body
         return new Response(JSON.stringify(body), {
@@ -47,7 +56,12 @@ function mockAuthApis(options?: {
       }
       if (url.endsWith('/api/auth/register')) {
         const body = options?.register ?? {
-          user: { id: 2, username: 'demo', createdAt: '2026-01-01 00:00:00' },
+          user: {
+            id: 2,
+            username: 'demo',
+            role: 'user',
+            createdAt: '2026-01-01 00:00:00',
+          },
         }
         const ok = 'user' in body
         return new Response(JSON.stringify(body), {
@@ -60,6 +74,24 @@ function mockAuthApis(options?: {
           status: 200,
           headers: { 'content-type': 'application/json' },
         })
+      }
+      if (url.endsWith('/api/admin/users')) {
+        return new Response(
+          JSON.stringify({
+            users: options?.users ?? [
+              {
+                id: 1,
+                username: '13424330500',
+                role: 'admin',
+                createdAt: '2026-01-01 00:00:00',
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        )
       }
       return new Response('not found', { status: 404 })
     }),
@@ -167,7 +199,12 @@ describe('登录页', () => {
     const user = userEvent.setup()
     mockAuthApis({
       login: {
-        user: { id: 1, username: 'admin', createdAt: '2026-01-01 00:00:00' },
+        user: {
+          id: 1,
+          username: 'admin',
+          role: 'user',
+          createdAt: '2026-01-01 00:00:00',
+        },
       },
     })
     render(<App />)
@@ -180,6 +217,37 @@ describe('登录页', () => {
 
     expect(await screen.findByText('账号已登录')).toBeInTheDocument()
     expect(screen.getByText('admin')).toBeInTheDocument()
+    expect(screen.queryByText('账号管理')).not.toBeInTheDocument()
+  })
+
+  it('shows account management for admin users', async () => {
+    mockAuthApis({
+      me: {
+        id: 2,
+        username: '13424330500',
+        role: 'admin',
+        createdAt: '2026-01-01 00:00:00',
+      },
+      users: [
+        {
+          id: 2,
+          username: '13424330500',
+          role: 'admin',
+          createdAt: '2026-01-01 00:00:00',
+        },
+        {
+          id: 1,
+          username: 'testuser01',
+          role: 'user',
+          createdAt: '2026-01-01 00:00:00',
+        },
+      ],
+    })
+    render(<App />)
+
+    expect(await screen.findByText('账号管理')).toBeInTheDocument()
+    expect(screen.getByText('testuser01')).toBeInTheDocument()
+    expect(screen.getByText('管理员')).toBeInTheDocument()
   })
 
   it('shows API field errors from the backend', async () => {
