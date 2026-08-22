@@ -96,7 +96,6 @@ export function SlideStack({ stack, renderPage }: SlideStackProps) {
           ]
             .filter(Boolean)
             .join(' ')}
-          aria-hidden={entry.phase === 'closing'}
           inert={index !== activeIndex || undefined}
         >
           {renderPage(entry.key)}
