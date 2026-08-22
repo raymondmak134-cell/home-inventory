@@ -7,9 +7,9 @@ type HomePageProps = {
 
 export function HomePage({ onOpenAccount }: HomePageProps) {
   return (
-    <div className="home-page">
+    <div className="login-page home-page">
       <TopNav familyName="我的家" onAvatarClick={onOpenAccount} />
-      <main className="home-page__main">
+      <main className="login-shell home-page__main">
         <EmptyWarehouse />
       </main>
     </div>

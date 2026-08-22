@@ -510,16 +510,25 @@
   }
 }
 
-/* —— 首页：顶部导航 + 空仓态 —— */
+/* —— 首页：顶部导航 + 空仓态（复用登录页白底与 typography） —— */
 .home-page {
-  min-height: 100svh;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.home-page__main {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(900px 520px at 8% -8%, #f8fffc 0%, transparent 55%),
-    radial-gradient(700px 480px at 100% 0%, #d9ebe4 0%, transparent 50%),
-    linear-gradient(165deg, #eef6f3 0%, #e5efea 52%, #dce9e3 100%);
-  color: #14241f;
+  min-height: 0;
+  width: 100%;
+  padding-top: 0;
+}
+
+@media (min-width: 480px) {
+  .home-page .login-shell {
+    padding-top: 0;
+  }
 }
 
 .top-nav {
@@ -530,10 +539,13 @@
   align-items: center;
   justify-content: space-between;
   min-height: 3.5rem;
-  padding: 0.75rem 1.25rem;
-  backdrop-filter: blur(10px);
-  background: color-mix(in oklab, #f4faf7 72%, transparent);
-  border-bottom: 1px solid color-mix(in oklab, #14241f 10%, transparent);
+  padding:
+    max(0.75rem, env(safe-area-inset-top))
+    max(1.5rem, env(safe-area-inset-right))
+    0.75rem
+    max(1.5rem, env(safe-area-inset-left));
+  background: #ffffff;
+  border-bottom: 1px solid #eef2f7;
   animation: home-nav-in 480ms ease both;
 }
 
@@ -550,10 +562,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
   line-height: 1.2;
-  color: #14241f;
+  color: #111827;
 }
 
 .top-nav__family-toggle {
@@ -566,14 +578,16 @@
   border: 0;
   border-radius: 0.4rem;
   background: transparent;
-  color: #5a6f68;
+  color: #9ca3af;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 .top-nav__family-toggle:hover,
 .top-nav__family-toggle:focus-visible {
-  color: #1f4f44;
-  background: color-mix(in oklab, #2f6b5d 10%, transparent);
+  color: #111827;
+  background: #f3f4f6;
 }
 
 .top-nav__chevron {
@@ -588,23 +602,12 @@
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
-  transition: transform 180ms ease;
-}
-
-.top-nav__avatar:hover,
-.top-nav__avatar:focus-visible {
-  transform: scale(1.04);
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 .top-nav__avatar-disk {
-  fill: #d7e8e1;
-}
-
-.home-page__main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  fill: #f3f4f6;
 }
 
 .empty-warehouse {
@@ -613,9 +616,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  width: min(100%, 28rem);
-  margin: 0 auto;
-  padding: clamp(3rem, 12vh, 5.5rem) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  width: 100%;
+  padding: clamp(2rem, 10vh, 4rem) 0 max(1.25rem, env(safe-area-inset-bottom));
   text-align: center;
 }
 
@@ -630,20 +632,11 @@
 }
 
 .empty-warehouse__title {
-  margin: 0;
-  font-family: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
-  font-size: clamp(2rem, 7vw, 2.75rem);
-  font-weight: 400;
-  line-height: 1.15;
-  color: #14241f;
+  max-width: 16rem;
 }
 
 .empty-warehouse__desc {
-  margin: 0;
   max-width: 16rem;
-  font-size: 1rem;
-  line-height: 1.7;
-  color: #5a6f68;
 }
 
 .empty-warehouse__action {
@@ -653,29 +646,8 @@
 }
 
 .empty-warehouse__cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
-  min-height: 3.15rem;
-  padding: 0.9rem 1.25rem;
-  border: 0;
-  border-radius: 999px;
-  background: #1f4f44;
-  color: #f4fffb;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease;
-}
-
-.empty-warehouse__cta:hover {
-  background: #2f6b5d;
-  transform: translateY(-1px);
-}
-
-.empty-warehouse__cta:active {
-  transform: scale(0.995);
+  margin-top: 0;
 }
 
 .account-panel__toolbar {
