@@ -1324,3 +1324,19 @@
 .manual-add-sheet__form .submit-btn {
   margin-top: 0.75rem;
 }
+
+.manual-add-sheet__hint,
+.manual-add-sheet__barcode {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+  color: #6b7280;
+}
+
+.manual-add-sheet__hint {
+  color: #b45309;
+}
+
+.item-confirm-sheet__image {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}

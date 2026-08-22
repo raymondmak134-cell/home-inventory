@@ -1,9 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { TanshuBarcodeProduct } from './tanshu.ts'
+import { findProductById, type Product } from './products.ts'
 
 export type InventoryItemRow = {
   id: number
   user_id: number
+  product_id: number | null
   barcode: string | null
   goods_name: string
   brand: string
@@ -18,6 +19,7 @@ export type InventoryItemRow = {
 
 export type InventoryItem = {
   id: number
+  productId: number | null
   barcode: string | null
   goodsName: string
   brand: string
@@ -31,8 +33,9 @@ export type InventoryItem = {
 }
 
 export type CreateInventoryItemInput = {
+  productId?: number
   barcode?: string | null
-  goodsName: string
+  goodsName?: string
   brand?: string
   spec?: string
   categoryName?: string
@@ -42,7 +45,7 @@ export type CreateInventoryItemInput = {
   originCountry?: string
 }
 
-const ITEM_SELECT = `SELECT id, user_id, barcode, goods_name, brand, spec,
+const ITEM_SELECT = `SELECT id, user_id, product_id, barcode, goods_name, brand, spec,
                             category_name, company, image, shelf_life,
                             origin_country, created_at
                      FROM inventory_items`
@@ -52,6 +55,7 @@ export function ensureInventoryTables(db: DatabaseSync): void {
     CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
+      product_id INTEGER,
       barcode TEXT,
       goods_name TEXT NOT NULL,
       brand TEXT NOT NULL DEFAULT '',
@@ -62,17 +66,26 @@ export function ensureInventoryTables(db: DatabaseSync): void {
       shelf_life TEXT NOT NULL DEFAULT '',
       origin_country TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_inventory_items_user_id
       ON inventory_items(user_id);
   `)
+
+  const columns = db.prepare(`PRAGMA table_info(inventory_items)`).all() as Array<{
+    name: string
+  }>
+  if (!columns.some((column) => column.name === 'product_id')) {
+    db.exec(`ALTER TABLE inventory_items ADD COLUMN product_id INTEGER`)
+  }
 }
 
 export function toInventoryItem(row: InventoryItemRow): InventoryItem {
   return {
     id: row.id,
+    productId: row.product_id,
     barcode: row.barcode,
     goodsName: row.goods_name,
     brand: row.brand,
@@ -100,56 +113,87 @@ export function listInventoryItems(
   return rows.map(toInventoryItem)
 }
 
+function inventoryInputFromProduct(product: Product): Required<
+  Pick<
+    CreateInventoryItemInput,
+    | 'barcode'
+    | 'goodsName'
+    | 'brand'
+    | 'spec'
+    | 'categoryName'
+    | 'company'
+    | 'image'
+    | 'shelfLife'
+    | 'originCountry'
+  >
+> {
+  return {
+    barcode: product.barcode,
+    goodsName: product.goodsName,
+    brand: product.brand,
+    spec: product.spec,
+    categoryName: product.categoryName,
+    company: product.company,
+    image: product.image,
+    shelfLife: product.shelfLife,
+    originCountry: product.originCountry,
+  }
+}
+
 export function createInventoryItem(
   db: DatabaseSync,
   userId: number,
   input: CreateInventoryItemInput,
 ): InventoryItem {
-  const goodsName = input.goodsName.trim()
-  if (!goodsName) {
+  let productId = input.productId ?? null
+  let snapshot = {
+    barcode: input.barcode?.trim() || null,
+    goodsName: input.goodsName?.trim() ?? '',
+    brand: input.brand?.trim() ?? '',
+    spec: input.spec?.trim() ?? '',
+    categoryName: input.categoryName?.trim() ?? '',
+    company: input.company?.trim() ?? '',
+    image: input.image?.trim() ?? '',
+    shelfLife: input.shelfLife?.trim() ?? '',
+    originCountry: input.originCountry?.trim() ?? '',
+  }
+
+  if (productId) {
+    const product = findProductById(db, productId)
+    if (!product) {
+      throw new Error('PRODUCT_NOT_FOUND')
+    }
+    snapshot = inventoryInputFromProduct(product)
+  }
+
+  if (!snapshot.goodsName) {
     throw new Error('GOODS_NAME_REQUIRED')
   }
 
   const row = db
     .prepare(
       `INSERT INTO inventory_items (
-         user_id, barcode, goods_name, brand, spec, category_name,
+         user_id, product_id, barcode, goods_name, brand, spec, category_name,
          company, image, shelf_life, origin_country
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       RETURNING id, user_id, barcode, goods_name, brand, spec,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id, user_id, product_id, barcode, goods_name, brand, spec,
                  category_name, company, image, shelf_life,
                  origin_country, created_at`,
     )
     .get(
       userId,
-      input.barcode?.trim() || null,
-      goodsName,
-      input.brand?.trim() ?? '',
-      input.spec?.trim() ?? '',
-      input.categoryName?.trim() ?? '',
-      input.company?.trim() ?? '',
-      input.image?.trim() ?? '',
-      input.shelfLife?.trim() ?? '',
-      input.originCountry?.trim() ?? '',
+      productId,
+      snapshot.barcode,
+      snapshot.goodsName,
+      snapshot.brand,
+      snapshot.spec,
+      snapshot.categoryName,
+      snapshot.company,
+      snapshot.image,
+      snapshot.shelfLife,
+      snapshot.originCountry,
     ) as InventoryItemRow
 
   return toInventoryItem(row)
-}
-
-export function createInventoryItemFromBarcodeProduct(
-  userId: number,
-  product: TanshuBarcodeProduct,
-): CreateInventoryItemInput {
-  return {
-    barcode: product.barcode,
-    goodsName: product.goods_name,
-    brand: product.brand,
-    spec: product.spec,
-    categoryName: product.category_name,
-    company: product.company,
-    image: product.image,
-    shelfLife: product.shelf_life,
-    originCountry: product.origin_country,
-  }
 }

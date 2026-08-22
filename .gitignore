@@ -14,7 +14,9 @@ dist-ssr
 .env
 .env.*
 !.env.example
+server/data/uploads/
 server/data/*.sqlite
+server/data/*.sqlite-*
 server/data/*.sqlite-*
 
 # Editor directories and files

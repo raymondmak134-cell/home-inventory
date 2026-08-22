@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from 'react'
-import type { BarcodeProduct } from '../types/barcode'
+import type { Product } from '../types/product'
 
 type ItemConfirmSheetProps = {
   open: boolean
   barcode: string
-  product: BarcodeProduct | null
+  product: Product | null
   loading: boolean
   error: string | null
   saving: boolean
@@ -115,9 +115,21 @@ export function ItemConfirmSheet({
 
           {product ? (
             <dl className="item-confirm-sheet__product">
+              {product.image ? (
+                <div>
+                  <dt>商品图片</dt>
+                  <dd>
+                    <img
+                      className="item-confirm-sheet__image"
+                      src={product.image}
+                      alt={product.goodsName}
+                    />
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt>商品名称</dt>
-                <dd>{product.goods_name || '—'}</dd>
+                <dd>{product.goodsName || '—'}</dd>
               </div>
               <div>
                 <dt>品牌</dt>
@@ -129,7 +141,7 @@ export function ItemConfirmSheet({
               </div>
               <div>
                 <dt>分类</dt>
-                <dd>{product.category_name || '—'}</dd>
+                <dd>{product.categoryName || '—'}</dd>
               </div>
             </dl>
           ) : null}

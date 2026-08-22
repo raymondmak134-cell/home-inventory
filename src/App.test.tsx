@@ -36,6 +36,7 @@ function mockAuthApis(options?: {
   }>
   inventoryItems?: Array<{
     id: number
+    productId: number | null
     barcode: string | null
     goodsName: string
     brand: string
@@ -47,17 +48,22 @@ function mockAuthApis(options?: {
     originCountry: string
     createdAt: string
   }>
-  barcodeLookup?: {
-    goods_name: string
-    brand: string
+  productLookup?: {
+    id: number
     barcode: string
-    spec?: string
-    category_name?: string
-    company?: string
-    image?: string
-    shelf_life?: string
-    origin_country?: string
+    goodsName: string
+    brand: string
+    spec: string
+    categoryName: string
+    company: string
+    image: string
+    shelfLife: string
+    originCountry: string
+    source: string
+    createdAt: string
+    updatedAt: string
   }
+  productLookupError?: { code: string; message: string }
 }) {
   const me = options?.me === undefined ? null : options.me
   let profile = options?.profile ?? { nickname: '', avatarUrl: null }
@@ -233,17 +239,19 @@ function mockAuthApis(options?: {
       }
       if (url.endsWith('/api/inventory/items') && method === 'POST') {
         const body = init?.body ? JSON.parse(String(init.body)) : {}
+        const lookup = options?.productLookup
         const item = {
           id: inventoryItems.length + 1,
-          barcode: body.barcode ?? null,
-          goodsName: body.goodsName,
-          brand: body.brand ?? '',
-          spec: body.spec ?? '',
-          categoryName: body.categoryName ?? '',
-          company: body.company ?? '',
-          image: body.image ?? '',
-          shelfLife: body.shelfLife ?? '',
-          originCountry: body.originCountry ?? '',
+          productId: typeof body.productId === 'number' ? body.productId : null,
+          barcode: body.barcode ?? lookup?.barcode ?? null,
+          goodsName: body.goodsName ?? lookup?.goodsName ?? '',
+          brand: body.brand ?? lookup?.brand ?? '',
+          spec: body.spec ?? lookup?.spec ?? '',
+          categoryName: body.categoryName ?? lookup?.categoryName ?? '',
+          company: body.company ?? lookup?.company ?? '',
+          image: body.image ?? lookup?.image ?? '',
+          shelfLife: body.shelfLife ?? lookup?.shelfLife ?? '',
+          originCountry: body.originCountry ?? lookup?.originCountry ?? '',
           createdAt: '2026-01-01 00:00:00',
         }
         inventoryItems = [item, ...inventoryItems]
@@ -252,20 +260,30 @@ function mockAuthApis(options?: {
           headers: { 'content-type': 'application/json' },
         })
       }
-      if (url.startsWith('/api/barcode?')) {
-        const lookup = options?.barcodeLookup ?? {
+      if (url.match(/\/api\/products\/barcode\/[^/]+$/)) {
+        if (options?.productLookupError) {
+          return new Response(JSON.stringify({ error: options.productLookupError }), {
+            status: 404,
+            headers: { 'content-type': 'application/json' },
+          })
+        }
+        const lookup = options?.productLookup ?? {
+          id: 1,
           barcode: '6906337301091',
-          goods_name: '葱油压缩饼干',
+          goodsName: '葱油压缩饼干',
           brand: '冠生园',
           spec: '118g*48袋',
-          category_name: '饼干、曲奇（耐储存）',
+          categoryName: '饼干、曲奇（耐存储）',
           company: '上海冠生园益民食品有限公司',
-          image: '',
-          shelf_life: '720天',
-          origin_country: '中国',
+          image: '/api/uploads/products/6906337301091.jpg',
+          shelfLife: '720天',
+          originCountry: '中国',
+          source: 'tanshu',
+          createdAt: '2026-01-01 00:00:00',
+          updatedAt: '2026-01-01 00:00:00',
         }
         return new Response(
-          JSON.stringify({ code: 1, msg: '操作成功', data: lookup }),
+          JSON.stringify({ product: lookup, fromCache: false }),
           {
             status: 200,
             headers: { 'content-type': 'application/json' },
@@ -558,6 +576,23 @@ describe('登录页', () => {
     expect(screen.getByText('洗衣液')).toBeInTheDocument()
     expect(screen.getByText('蓝月亮')).toBeInTheDocument()
     expect(screen.getByText('共 1 件物品')).toBeInTheDocument()
+  })
+
+  it('opens manual add directly from scan sheet shortcut', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      me: {
+        id: 1,
+        username: 'demo',
+        role: 'user',
+        createdAt: '2026-01-01 00:00:00',
+      },
+    })
+    renderApp()
+
+    await user.click(await screen.findByRole('button', { name: '入库家里第一件物品' }))
+    await user.click(await screen.findByRole('button', { name: '无条形码？手动添加' }))
+    expect(await screen.findByRole('dialog', { name: '手动添加' })).toBeInTheDocument()
   })
 
   it('reuses login-style validation on the change-password form', async () => {

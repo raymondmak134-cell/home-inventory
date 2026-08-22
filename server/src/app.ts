@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { Hono } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import type { DatabaseSync } from 'node:sqlite'
@@ -43,12 +44,18 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from './session.ts'
-import { lookupTanshuBarcode } from './tanshu.ts'
+import {
+  contentTypeForImagePath,
+  resolveProductByBarcode,
+  resolveProductImagePath,
+  resolveUploadsDir,
+} from './products.ts'
 
 export type AppEnv = {
   Variables: {
     db: DatabaseSync
     secureCookies: boolean
+    uploadsDir: string
     user: PublicUser | null
   }
 }
@@ -74,13 +81,18 @@ function parseRole(value: unknown): UserRole | null {
   return null
 }
 
-export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean }) {
+export function createApp(
+  db: DatabaseSync,
+  options?: { secureCookies?: boolean; uploadsDir?: string },
+) {
   const app = new Hono<AppEnv>()
   const secureCookies = options?.secureCookies ?? false
+  const uploadsDir = options?.uploadsDir ?? resolveUploadsDir()
 
   app.use('*', async (c, next) => {
     c.set('db', db)
     c.set('secureCookies', secureCookies)
+    c.set('uploadsDir', uploadsDir)
     c.set('user', readSessionUser(db, getCookie(c, SESSION_COOKIE)))
     await next()
   })
@@ -416,6 +428,7 @@ export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean 
   inventory.post('/items', async (c) => {
     const user = c.get('user')!
     let body: {
+      productId?: unknown
       barcode?: unknown
       goodsName?: unknown
       brand?: unknown
@@ -432,14 +445,22 @@ export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean 
       return c.json(errorBody('INVALID_JSON', '请求格式无效'), 400)
     }
 
-    if (typeof body.goodsName !== 'string' || !body.goodsName.trim()) {
-      return c.json(errorBody('INVALID_NAME', '请输入商品名称'), 400)
+    const productId =
+      typeof body.productId === 'number' && Number.isInteger(body.productId)
+        ? body.productId
+        : undefined
+
+    if (!productId) {
+      if (typeof body.goodsName !== 'string' || !body.goodsName.trim()) {
+        return c.json(errorBody('INVALID_NAME', '请输入商品名称'), 400)
+      }
     }
 
     try {
       const item = createInventoryItem(c.get('db'), user.id, {
+        productId,
         barcode: typeof body.barcode === 'string' ? body.barcode : null,
-        goodsName: body.goodsName,
+        goodsName: typeof body.goodsName === 'string' ? body.goodsName : undefined,
         brand: typeof body.brand === 'string' ? body.brand : '',
         spec: typeof body.spec === 'string' ? body.spec : '',
         categoryName: typeof body.categoryName === 'string' ? body.categoryName : '',
@@ -450,8 +471,13 @@ export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean 
       })
       return c.json({ item }, 201)
     } catch (error) {
-      if (error instanceof Error && error.message === 'GOODS_NAME_REQUIRED') {
-        return c.json(errorBody('INVALID_NAME', '请输入商品名称'), 400)
+      if (error instanceof Error) {
+        if (error.message === 'GOODS_NAME_REQUIRED') {
+          return c.json(errorBody('INVALID_NAME', '请输入商品名称'), 400)
+        }
+        if (error.message === 'PRODUCT_NOT_FOUND') {
+          return c.json(errorBody('PRODUCT_NOT_FOUND', '商品不存在'), 404)
+        }
       }
       return c.json(errorBody('UNKNOWN', '入库失败，请稍后重试'), 500)
     }
@@ -459,27 +485,57 @@ export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean 
 
   app.route('/api/inventory', inventory)
 
-  app.get('/api/barcode', async (c) => {
+  const products = new Hono<AppEnv>()
+
+  products.use('*', async (c, next) => {
     const user = c.get('user')
     if (!user) {
       return c.json(errorBody('UNAUTHENTICATED', '未登录'), 401)
     }
+    await next()
+  })
 
-    const barcode = c.req.query('barcode')?.trim()
-    if (!barcode) {
-      return c.json(errorBody('INVALID_BARCODE', '缺少 barcode 参数'), 400)
-    }
+  products.get('/barcode/:code', async (c) => {
+    const user = c.get('user')!
+    const code = c.req.param('code')
+    const result = await resolveProductByBarcode(c.get('db'), code, {
+      apiKey: process.env.TANSHU_API_KEY?.trim() ?? '',
+      uploadsDir: c.get('uploadsDir'),
+      userId: user.id,
+    })
 
-    const apiKey = process.env.TANSHU_API_KEY?.trim() ?? ''
-    const result = await lookupTanshuBarcode(barcode, apiKey)
     if (!result.ok) {
-      return c.json(
-        errorBody('BARCODE_LOOKUP_FAILED', result.message),
-        result.message === '未配置 TANSHU_API_KEY' ? 500 : 404,
-      )
+      const status =
+        result.code === 'UPSTREAM_ERROR'
+          ? 502
+          : result.code === 'INVALID_BARCODE'
+            ? 400
+            : 404
+      return c.json(errorBody(result.code, result.message), status)
     }
 
-    return c.json({ code: 1, msg: '操作成功', data: result.data })
+    return c.json({
+      product: result.product,
+      fromCache: result.fromCache,
+    })
+  })
+
+  app.route('/api/products', products)
+
+  app.get('/api/uploads/products/:filename', (c) => {
+    const filepath = resolveProductImagePath(
+      c.get('uploadsDir'),
+      `products/${c.req.param('filename')}`,
+    )
+    if (!filepath) {
+      return c.json(errorBody('NOT_FOUND', '图片不存在'), 404)
+    }
+
+    const data = readFileSync(filepath)
+    return c.body(data, 200, {
+      'Content-Type': contentTypeForImagePath(filepath),
+      'Cache-Control': 'public, max-age=86400',
+    })
   })
 
   const admin = new Hono<AppEnv>()

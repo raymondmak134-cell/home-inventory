@@ -1,7 +1,4 @@
-import type {
-  CreateInventoryItemInput,
-  InventoryItem,
-} from '../types/inventory'
+import type { CreateInventoryItemInput, InventoryItem } from '../types/inventory'
 
 export class InventoryApiError extends Error {
   code?: string
@@ -56,26 +53,8 @@ export async function createInventoryItem(
   return body.item
 }
 
-export function inventoryItemFromBarcodeProduct(product: {
-  barcode: string
-  goods_name: string
-  brand: string
-  spec: string
-  category_name: string
-  company: string
-  image: string
-  shelf_life: string
-  origin_country: string
-}): CreateInventoryItemInput {
-  return {
-    barcode: product.barcode,
-    goodsName: product.goods_name,
-    brand: product.brand,
-    spec: product.spec,
-    categoryName: product.category_name,
-    company: product.company,
-    image: product.image,
-    shelfLife: product.shelf_life,
-    originCountry: product.origin_country,
-  }
+export async function createInventoryItemFromProduct(
+  productId: number,
+): Promise<InventoryItem> {
+  return createInventoryItem({ productId })
 }

@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BarcodeApiError, fetchBarcodeProduct } from '../api/barcode'
 import {
   createInventoryItem,
+  createInventoryItemFromProduct,
   fetchInventoryItems,
-  inventoryItemFromBarcodeProduct,
   InventoryApiError,
 } from '../api/inventory'
+import {
+  fetchProductByBarcode,
+  isProductNotFound,
+  ProductApiError,
+} from '../api/products'
 import { EmptyWarehouse } from '../components/EmptyWarehouse'
 import { InventoryList } from '../components/InventoryList'
 import { ItemConfirmSheet } from '../components/ItemConfirmSheet'
 import { ManualAddSheet } from '../components/ManualAddSheet'
 import { ScanSheet } from '../components/ScanSheet'
 import { TopNav } from '../components/TopNav'
-import type { BarcodeProduct } from '../types/barcode'
 import type { InventoryItem } from '../types/inventory'
+import type { Product } from '../types/product'
 
 type HomePageProps = {
   onOpenAccount?: () => void
@@ -26,9 +30,11 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
 
   const [scanOpen, setScanOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
+  const [manualBarcode, setManualBarcode] = useState('')
+  const [manualHint, setManualHint] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmBarcode, setConfirmBarcode] = useState('')
-  const [confirmProduct, setConfirmProduct] = useState<BarcodeProduct | null>(null)
+  const [confirmProduct, setConfirmProduct] = useState<Product | null>(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -56,9 +62,12 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
     setScanOpen(true)
   }
 
-  function openManual() {
+  function openManual(options?: { barcode?: string; hint?: string }) {
     setScanOpen(false)
+    setConfirmOpen(false)
     setManualError(null)
+    setManualBarcode(options?.barcode ?? '')
+    setManualHint(options?.hint ?? null)
     setManualOpen(true)
   }
 
@@ -71,11 +80,19 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
     setConfirmOpen(true)
 
     try {
-      const result = await fetchBarcodeProduct(barcode)
-      setConfirmProduct(result.data)
+      const result = await fetchProductByBarcode(barcode)
+      setConfirmProduct(result.product)
     } catch (caught) {
+      if (isProductNotFound(caught)) {
+        setConfirmOpen(false)
+        openManual({
+          barcode,
+          hint: '未找到该条形码对应的商品，请手动填写信息',
+        })
+        return
+      }
       setConfirmError(
-        caught instanceof BarcodeApiError ? caught.message : '查询失败，请稍后重试',
+        caught instanceof ProductApiError ? caught.message : '查询失败，请稍后重试',
       )
     } finally {
       setConfirmLoading(false)
@@ -87,9 +104,7 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
     setSaving(true)
     setConfirmError(null)
     try {
-      const item = await createInventoryItem(
-        inventoryItemFromBarcodeProduct(confirmProduct),
-      )
+      const item = await createInventoryItemFromProduct(confirmProduct.id)
       setItems((current) => [item, ...current])
       setConfirmOpen(false)
     } catch (caught) {
@@ -109,9 +124,14 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
     setSaving(true)
     setManualError(null)
     try {
-      const item = await createInventoryItem(input)
+      const item = await createInventoryItem({
+        ...input,
+        barcode: manualBarcode.trim() || null,
+      })
       setItems((current) => [item, ...current])
       setManualOpen(false)
+      setManualBarcode('')
+      setManualHint(null)
     } catch (caught) {
       setManualError(
         caught instanceof InventoryApiError ? caught.message : '入库失败，请稍后重试',
@@ -143,7 +163,7 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
       <ScanSheet
         open={scanOpen}
         onClose={() => setScanOpen(false)}
-        onManualAdd={openManual}
+        onManualAdd={() => openManual()}
         onBarcodeDetected={(barcode) => void handleBarcodeDetected(barcode)}
       />
 
@@ -164,8 +184,14 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
         open={manualOpen}
         saving={saving}
         error={manualError}
+        hint={manualHint}
+        initialBarcode={manualBarcode}
         onClose={() => {
-          if (!saving) setManualOpen(false)
+          if (!saving) {
+            setManualOpen(false)
+            setManualBarcode('')
+            setManualHint(null)
+          }
         }}
         onSubmit={(input) => void handleManualSave(input)}
       />

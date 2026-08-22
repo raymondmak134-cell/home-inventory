@@ -9,17 +9,35 @@
 - pnpm workspace（根目录前端 + `server/` API）
 - Vitest + Testing Library / Oxlint
 
-## 探数条形码 API
+## 商品查询与入库架构
 
-1. 复制环境变量模板：`cp .env.example .env.local`
-2. 填入探数个人中心的 `TANSHU_API_KEY`
-3. 启动后端时自动读取（密钥仅存在于服务端，不会暴露到浏览器）
+扫码得到条码后，前端调用：
+
+`GET /api/products/barcode/:code`
+
+服务端处理流程：
+
+1. **本地命中**：`products` 表已有该条码 → 直接返回（`fromCache: true`）
+2. **本地未命中**：服务端调用探数 API（`TANSHU_API_KEY` 仅存在于服务端）
+   - **查到**：下载商品图片到 `server/data/uploads/products/`，写入 `products` 表，再返回
+   - **查不到**：写入 `barcode_misses` 未命中记录，返回 `PRODUCT_NOT_FOUND`，前端引导手动添加
+
+确认入库时，前端调用 `POST /api/inventory/items`，传 `{ productId }`；手动添加则传 `{ goodsName, brand, spec, barcode? }`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/barcode?barcode=` | 登录后查询条形码商品信息（代理探数 API） |
+| `GET` | `/api/products/barcode/:code` | 查询商品（本地缓存优先） |
+| `GET` | `/api/uploads/products/:filename` | 读取本地缓存的商品图片 |
 | `GET` | `/api/inventory/items` | 当前用户的入库物品列表 |
-| `POST` | `/api/inventory/items` | 入库一件物品（扫码确认或手动添加） |
+| `POST` | `/api/inventory/items` | 入库（`productId` 或手动字段） |
+
+## 探数条形码 API 配置
+
+1. 复制环境变量模板：`cp .env.example .env.local`
+2. 填入探数个人中心的 `TANSHU_API_KEY`
+3. 启动 `pnpm dev:server` 时自动读取（密钥不会暴露到浏览器）
+
+可选：`UPLOADS_PATH` 指定图片存储目录（默认 `server/data/uploads`）。
 
 ## 本地开发
 

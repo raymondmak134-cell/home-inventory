@@ -5,6 +5,8 @@ type ManualAddSheetProps = {
   open: boolean
   saving: boolean
   error: string | null
+  hint?: string | null
+  initialBarcode?: string
   onClose: () => void
   onSubmit: (input: {
     goodsName: string
@@ -21,6 +23,8 @@ export function ManualAddSheet({
   open,
   saving,
   error,
+  hint,
+  initialBarcode = '',
   onClose,
   onSubmit,
 }: ManualAddSheetProps) {
@@ -30,6 +34,7 @@ export function ManualAddSheet({
   const [goodsName, setGoodsName] = useState('')
   const [brand, setBrand] = useState('')
   const [spec, setSpec] = useState('')
+  const [barcode, setBarcode] = useState(initialBarcode)
   const [fieldError, setFieldError] = useState('')
 
   if (prevOpen !== open) {
@@ -40,6 +45,7 @@ export function ManualAddSheet({
       setBrand('')
       setSpec('')
       setFieldError('')
+      setBarcode(initialBarcode)
     }
   }
 
@@ -109,6 +115,14 @@ export function ManualAddSheet({
         </header>
 
         <form className="manual-add-sheet__form" onSubmit={handleSubmit}>
+          {hint ? (
+            <p className="manual-add-sheet__hint" role="status">
+              {hint}
+            </p>
+          ) : null}
+          {barcode ? (
+            <p className="manual-add-sheet__barcode">条形码：{barcode}</p>
+          ) : null}
           <TextField
             id="manual-goods-name"
             label="商品名称"
