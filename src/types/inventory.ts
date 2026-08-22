@@ -10,6 +10,10 @@ export type InventoryItem = {
   image: string
   shelfLife: string
   originCountry: string
+  quantity: number
+  expiryDate: string
+  storageLocation: string
+  notes: string
   createdAt: string
 }
 
@@ -24,4 +28,17 @@ export type CreateInventoryItemInput = {
   image?: string
   shelfLife?: string
   originCountry?: string
+  quantity?: number
+  expiryDate?: string
+  storageLocation?: string
+  notes?: string
+}
+
+export type ScanIntakeInput = {
+  productId: number
+  spec: string
+  quantity: number
+  expiryDate: string
+  storageLocation: string
+  notes: string
 }

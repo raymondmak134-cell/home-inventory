@@ -438,6 +438,10 @@ export function createApp(
       image?: unknown
       shelfLife?: unknown
       originCountry?: unknown
+      quantity?: unknown
+      expiryDate?: unknown
+      storageLocation?: unknown
+      notes?: unknown
     }
     try {
       body = await c.req.json()
@@ -468,6 +472,17 @@ export function createApp(
         image: typeof body.image === 'string' ? body.image : '',
         shelfLife: typeof body.shelfLife === 'string' ? body.shelfLife : '',
         originCountry: typeof body.originCountry === 'string' ? body.originCountry : '',
+        quantity:
+          typeof body.quantity === 'number' && Number.isFinite(body.quantity)
+            ? body.quantity
+            : undefined,
+        expiryDate:
+          typeof body.expiryDate === 'string' ? body.expiryDate : undefined,
+        storageLocation:
+          typeof body.storageLocation === 'string'
+            ? body.storageLocation
+            : undefined,
+        notes: typeof body.notes === 'string' ? body.notes : undefined,
       })
       return c.json({ item }, 201)
     } catch (error) {
@@ -477,6 +492,12 @@ export function createApp(
         }
         if (error.message === 'PRODUCT_NOT_FOUND') {
           return c.json(errorBody('PRODUCT_NOT_FOUND', '商品不存在'), 404)
+        }
+        if (error.message === 'QUANTITY_REQUIRED') {
+          return c.json(errorBody('INVALID_QUANTITY', '请输入有效数量'), 400)
+        }
+        if (error.message === 'STORAGE_LOCATION_REQUIRED') {
+          return c.json(errorBody('INVALID_LOCATION', '请选择存放位置'), 400)
         }
       }
       return c.json(errorBody('UNKNOWN', '入库失败，请稍后重试'), 500)

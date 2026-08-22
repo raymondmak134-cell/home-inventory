@@ -46,6 +46,10 @@ function mockAuthApis(options?: {
     image: string
     shelfLife: string
     originCountry: string
+    quantity: number
+    expiryDate: string
+    storageLocation: string
+    notes: string
     createdAt: string
   }>
   productLookup?: {
@@ -252,6 +256,11 @@ function mockAuthApis(options?: {
           image: body.image ?? lookup?.image ?? '',
           shelfLife: body.shelfLife ?? lookup?.shelfLife ?? '',
           originCountry: body.originCountry ?? lookup?.originCountry ?? '',
+          quantity: typeof body.quantity === 'number' ? body.quantity : 1,
+          expiryDate: typeof body.expiryDate === 'string' ? body.expiryDate : '',
+          storageLocation:
+            typeof body.storageLocation === 'string' ? body.storageLocation : '',
+          notes: typeof body.notes === 'string' ? body.notes : '',
           createdAt: '2026-01-01 00:00:00',
         }
         inventoryItems = [item, ...inventoryItems]

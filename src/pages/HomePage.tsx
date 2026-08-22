@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   createInventoryItem,
-  createInventoryItemFromProduct,
   fetchInventoryItems,
   InventoryApiError,
 } from '../api/inventory'
@@ -10,8 +9,7 @@ import { InventoryList } from '../components/InventoryList'
 import { ManualAddSheet } from '../components/ManualAddSheet'
 import { ScanSheet } from '../components/ScanSheet'
 import { TopNav } from '../components/TopNav'
-import type { InventoryItem } from '../types/inventory'
-import type { Product } from '../types/product'
+import type { InventoryItem, ScanIntakeInput } from '../types/inventory'
 
 type HomePageProps = {
   onOpenAccount?: () => void
@@ -27,6 +25,7 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
   const [manualBarcode, setManualBarcode] = useState('')
   const [manualHint, setManualHint] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [scanSaveError, setScanSaveError] = useState<string | null>(null)
   const [manualError, setManualError] = useState<string | null>(null)
 
   const loadItems = useCallback(async () => {
@@ -48,6 +47,7 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
   }, [loadItems])
 
   function openScan() {
+    setScanSaveError(null)
     setScanOpen(true)
   }
 
@@ -59,14 +59,23 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
     setManualOpen(true)
   }
 
-  async function handleConfirmProduct(product: Product) {
+  async function handleSaveIntake(input: ScanIntakeInput) {
     setSaving(true)
+    setScanSaveError(null)
     try {
-      const item = await createInventoryItemFromProduct(product.id)
+      const item = await createInventoryItem({
+        productId: input.productId,
+        spec: input.spec,
+        quantity: input.quantity,
+        expiryDate: input.expiryDate,
+        storageLocation: input.storageLocation,
+        notes: input.notes,
+      })
       setItems((current) => [item, ...current])
       setScanOpen(false)
+      setScanSaveError(null)
     } catch (caught) {
-      window.alert(
+      setScanSaveError(
         caught instanceof InventoryApiError ? caught.message : '入库失败，请稍后重试',
       )
     } finally {
@@ -120,9 +129,16 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
 
       <ScanSheet
         open={scanOpen}
-        onClose={() => setScanOpen(false)}
+        saving={saving}
+        saveError={scanSaveError}
+        onClose={() => {
+          if (!saving) {
+            setScanOpen(false)
+            setScanSaveError(null)
+          }
+        }}
         onManualAdd={openManual}
-        onConfirmProduct={(product) => void handleConfirmProduct(product)}
+        onSaveIntake={(input) => void handleSaveIntake(input)}
       />
 
       <ManualAddSheet

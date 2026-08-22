@@ -1,32 +1,50 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import {
   fetchProductByBarcode,
   isProductNotFound,
   ProductApiError,
 } from '../api/products'
+import { STORAGE_LOCATIONS } from '../constants/storageLocations'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
-import { SubmitButton } from './SubmitButton'
+import type { ScanIntakeInput } from '../types/inventory'
 import type { Product } from '../types/product'
+import { SelectField } from './SelectField'
+import { SubmitButton } from './SubmitButton'
+import { TextField } from './TextField'
 
 type ScanSheetProps = {
   open: boolean
+  saving?: boolean
+  saveError?: string | null
   onClose: () => void
   onManualAdd?: (options?: { barcode?: string; hint?: string }) => void
-  /** 「是这个，继续入库」——入库逻辑由父组件补充 */
-  onConfirmProduct?: (product: Product) => void
+  onSaveIntake?: (input: ScanIntakeInput) => void
 }
 
 type SheetPhase = 'closed' | 'entering' | 'open' | 'closing'
-type ScanMode = 'scanning' | 'loading' | 'preview' | 'error'
+type ScanMode = 'scanning' | 'loading' | 'preview' | 'intake' | 'error'
+type SlideDirection = 'forward' | 'back'
+
+type IntakeFieldErrors = {
+  quantity?: string
+  storageLocation?: string
+}
 
 /** 与 App.css 中 .scan-sheet 的过渡时长保持一致（含少量余量） */
 const EXIT_DURATION_MS = 360
 
+const STORAGE_OPTIONS = STORAGE_LOCATIONS.map((location) => ({
+  value: location,
+  label: location,
+}))
+
 export function ScanSheet({
   open,
+  saving = false,
+  saveError = null,
   onClose,
   onManualAdd,
-  onConfirmProduct,
+  onSaveIntake,
 }: ScanSheetProps) {
   const titleId = useId()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -37,9 +55,17 @@ export function ScanSheet({
   const [prevOpen, setPrevOpen] = useState(open)
   const [cameraError, setCameraError] = useState('')
   const [mode, setMode] = useState<ScanMode>('scanning')
+  const [slideDirection, setSlideDirection] = useState<SlideDirection>('forward')
   const [product, setProduct] = useState<Product | null>(null)
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [contentHeight, setContentHeight] = useState<number | null>(null)
+
+  const [intakeSpec, setIntakeSpec] = useState('')
+  const [intakeQuantity, setIntakeQuantity] = useState('1')
+  const [intakeExpiry, setIntakeExpiry] = useState('')
+  const [intakeLocation, setIntakeLocation] = useState('')
+  const [intakeNotes, setIntakeNotes] = useState('')
+  const [intakeErrors, setIntakeErrors] = useState<IntakeFieldErrors>({})
 
   if (prevOpen !== open) {
     setPrevOpen(open)
@@ -47,10 +73,21 @@ export function ScanSheet({
     if (open) {
       setCameraError('')
       setMode('scanning')
+      setSlideDirection('forward')
       setProduct(null)
       setLookupError(null)
+      resetIntakeForm()
       lookupGeneration.current += 1
     }
+  }
+
+  function resetIntakeForm() {
+    setIntakeSpec('')
+    setIntakeQuantity('1')
+    setIntakeExpiry('')
+    setIntakeLocation('')
+    setIntakeNotes('')
+    setIntakeErrors({})
   }
 
   useEffect(() => {
@@ -83,7 +120,22 @@ export function ScanSheet({
     const observer = new ResizeObserver(measure)
     observer.observe(node)
     return () => observer.disconnect()
-  }, [mode, product, lookupError, cameraError, phase])
+  }, [
+    mode,
+    product,
+    lookupError,
+    cameraError,
+    phase,
+    intakeSpec,
+    intakeQuantity,
+    intakeExpiry,
+    intakeLocation,
+    intakeNotes,
+    intakeErrors,
+    saveError,
+    saving,
+    slideDirection,
+  ])
 
   const cameraActive = (phase === 'entering' || phase === 'open') && mode === 'scanning'
 
@@ -96,6 +148,7 @@ export function ScanSheet({
     lookupGeneration.current = generation
     setProduct(null)
     setLookupError(null)
+    resetIntakeForm()
     setMode('loading')
 
     try {
@@ -108,6 +161,7 @@ export function ScanSheet({
       }
 
       setProduct(result.product)
+      setSlideDirection('forward')
       setMode('preview')
     } catch (caught) {
       if (lookupGeneration.current !== generation) return
@@ -132,7 +186,57 @@ export function ScanSheet({
     lookupGeneration.current += 1
     setProduct(null)
     setLookupError(null)
+    resetIntakeForm()
+    setSlideDirection('forward')
     setMode('scanning')
+  }
+
+  function handleContinueToIntake() {
+    if (!product) return
+    setIntakeSpec(product.spec)
+    if (!intakeQuantity.trim()) setIntakeQuantity('1')
+    setIntakeErrors({})
+    setSlideDirection('forward')
+    setMode('intake')
+  }
+
+  function handleBackToPreview() {
+    setSlideDirection('back')
+    setMode('preview')
+  }
+
+  function handleAbandonIntake() {
+    onClose()
+  }
+
+  function handleSaveIntake(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!product || saving) return
+
+    const quantity = Number.parseInt(intakeQuantity, 10)
+    const nextErrors: IntakeFieldErrors = {}
+
+    if (!intakeQuantity.trim() || !Number.isFinite(quantity) || quantity < 1) {
+      nextErrors.quantity = '请输入数量'
+    }
+    if (!intakeLocation) {
+      nextErrors.storageLocation = '请选择存放位置'
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setIntakeErrors(nextErrors)
+      return
+    }
+
+    setIntakeErrors({})
+    onSaveIntake?.({
+      productId: product.id,
+      spec: intakeSpec.trim(),
+      quantity,
+      expiryDate: intakeExpiry,
+      storageLocation: intakeLocation,
+      notes: intakeNotes.trim(),
+    })
   }
 
   useEffect(() => {
@@ -182,6 +286,7 @@ export function ScanSheet({
   if (phase === 'closed') return null
 
   const showManualAdd = mode === 'scanning' || mode === 'error'
+  const showProductFlow = (mode === 'preview' || mode === 'intake') && product
   const captionText =
     mode === 'preview' && product
       ? product.goodsName
@@ -198,7 +303,8 @@ export function ScanSheet({
         type="button"
         className="scan-sheet__backdrop"
         aria-label="关闭弹窗"
-        onClick={onClose}
+        onClick={saving ? undefined : onClose}
+        disabled={saving}
       />
       <div
         className="scan-sheet__panel"
@@ -212,7 +318,24 @@ export function ScanSheet({
         }
       >
         <div ref={contentRef} className="scan-sheet__content">
-          <header className="scan-sheet__header">
+          <header
+            className={
+              mode === 'intake'
+                ? 'scan-sheet__header scan-sheet__header--with-back'
+                : 'scan-sheet__header'
+            }
+          >
+            {mode === 'intake' ? (
+              <button
+                type="button"
+                className="scan-sheet__back"
+                aria-label="返回"
+                onClick={handleBackToPreview}
+                disabled={saving}
+              >
+                <BackIcon />
+              </button>
+            ) : null}
             <h2 id={titleId} className="scan-sheet__title">
               扫码入库
             </h2>
@@ -221,95 +344,200 @@ export function ScanSheet({
               className="scan-sheet__close"
               aria-label="关闭"
               onClick={onClose}
+              disabled={saving}
             >
               <CloseIcon />
             </button>
           </header>
 
-          <div
-            className={
-              mode === 'preview'
-                ? 'scan-sheet__frame scan-sheet__frame--preview'
-                : 'scan-sheet__frame'
-            }
-            aria-busy={mode === 'loading'}
-          >
-            {mode === 'scanning' ? (
-              <>
-                <video
-                  ref={videoRef}
-                  className="scan-sheet__video"
-                  playsInline
-                  muted
-                  autoPlay
-                />
-                {cameraError ? (
-                  <p className="scan-sheet__camera-hint">{cameraError}</p>
-                ) : (
-                  <BarcodeHintIcon />
-                )}
-              </>
-            ) : null}
-
-            {mode === 'loading' ? (
-              <div className="scan-sheet__loading" role="status">
-                <LoadingSpinner />
-                <span className="scan-sheet__loading-text">正在识别商品…</span>
-              </div>
-            ) : null}
-
-            {mode === 'preview' && product ? (
-              product.image ? (
-                <img
-                  className="scan-sheet__product-image"
-                  src={product.image}
-                  alt={product.goodsName}
-                />
-              ) : (
-                <div className="scan-sheet__product-fallback" aria-hidden="true">
-                  <span>{product.goodsName.slice(0, 1) || '?'}</span>
+          {showProductFlow ? (
+            <div
+              className="scan-sheet__view-port"
+              data-direction={slideDirection}
+            >
+              <div
+                className={
+                  mode === 'preview'
+                    ? 'scan-sheet__view-pane scan-sheet__view-pane--preview is-current'
+                    : 'scan-sheet__view-pane scan-sheet__view-pane--preview is-hidden'
+                }
+                aria-hidden={mode !== 'preview'}
+              >
+                <div className="scan-sheet__frame scan-sheet__frame--preview">
+                  {product.image ? (
+                    <img
+                      className="scan-sheet__product-image"
+                      src={product.image}
+                      alt={product.goodsName}
+                    />
+                  ) : (
+                    <div className="scan-sheet__product-fallback" aria-hidden="true">
+                      <span>{product.goodsName.slice(0, 1) || '?'}</span>
+                    </div>
+                  )}
                 </div>
-              )
-            ) : null}
 
-            {mode === 'error' ? (
-              <div className="scan-sheet__error-state" role="alert">
-                <span className="scan-sheet__error-icon" aria-hidden="true">
-                  !
-                </span>
+                <p className="scan-sheet__caption scan-sheet__caption--title">
+                  {product.goodsName}
+                </p>
+
+                <div className="scan-sheet__preview-actions">
+                  <SubmitButton type="button" onClick={handleContinueToIntake}>
+                    是这个，继续入库
+                  </SubmitButton>
+                  <button
+                    type="button"
+                    className="scan-sheet__manual"
+                    onClick={handleRescan}
+                  >
+                    扫错了，重新扫码
+                  </button>
+                </div>
               </div>
-            ) : null}
-          </div>
 
-          <p
-            className={
-              mode === 'preview'
-                ? 'scan-sheet__caption scan-sheet__caption--title'
-                : mode === 'error'
-                  ? 'scan-sheet__caption scan-sheet__caption--error'
-                  : 'scan-sheet__caption'
-            }
-          >
-            {captionText}
-          </p>
+              <div
+                className={
+                  mode === 'intake'
+                    ? 'scan-sheet__view-pane scan-sheet__view-pane--intake is-current'
+                    : 'scan-sheet__view-pane scan-sheet__view-pane--intake is-hidden'
+                }
+                aria-hidden={mode !== 'intake'}
+              >
+                <form className="scan-sheet__intake-form" onSubmit={handleSaveIntake}>
+                  <TextField
+                    id="scan-intake-spec"
+                    label="规格"
+                    value={intakeSpec}
+                    onValueChange={setIntakeSpec}
+                    placeholder="例如 500ml"
+                    autoComplete="off"
+                  />
+                  <TextField
+                    id="scan-intake-quantity"
+                    label="数量"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    value={intakeQuantity}
+                    onValueChange={(value) => {
+                      setIntakeQuantity(value)
+                      if (intakeErrors.quantity) {
+                        setIntakeErrors((current) => ({ ...current, quantity: undefined }))
+                      }
+                    }}
+                    placeholder="请输入数量"
+                    autoComplete="off"
+                    error={intakeErrors.quantity}
+                    required
+                  />
+                  <TextField
+                    id="scan-intake-expiry"
+                    label="有效期"
+                    type="date"
+                    value={intakeExpiry}
+                    onValueChange={setIntakeExpiry}
+                    autoComplete="off"
+                  />
+                  <SelectField
+                    id="scan-intake-location"
+                    label="存放位置"
+                    value={intakeLocation}
+                    onValueChange={(value) => {
+                      setIntakeLocation(value)
+                      if (intakeErrors.storageLocation) {
+                        setIntakeErrors((current) => ({
+                          ...current,
+                          storageLocation: undefined,
+                        }))
+                      }
+                    }}
+                    options={STORAGE_OPTIONS}
+                    placeholder="请选择存放位置"
+                    error={intakeErrors.storageLocation}
+                    required
+                  />
+                  <TextField
+                    id="scan-intake-notes"
+                    label="补充信息"
+                    value={intakeNotes}
+                    onValueChange={setIntakeNotes}
+                    placeholder="选填"
+                    autoComplete="off"
+                  />
 
-          {mode === 'preview' && product ? (
-            <div className="scan-sheet__preview-actions">
-              <SubmitButton
-                type="button"
-                onClick={() => onConfirmProduct?.(product)}
-              >
-                是这个，继续入库
-              </SubmitButton>
-              <button
-                type="button"
-                className="scan-sheet__manual"
-                onClick={handleRescan}
-              >
-                扫错了，重新扫码
-              </button>
+                  {saveError ? (
+                    <p className="scan-sheet__intake-error" role="alert">
+                      {saveError}
+                    </p>
+                  ) : null}
+
+                  <div className="scan-sheet__intake-actions">
+                    <SubmitButton type="submit" disabled={saving}>
+                      {saving ? '保存中…' : '保存入库'}
+                    </SubmitButton>
+                    <button
+                      type="button"
+                      className="scan-sheet__manual"
+                      onClick={handleAbandonIntake}
+                      disabled={saving}
+                    >
+                      放弃入库
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div
+                className="scan-sheet__frame"
+                aria-busy={mode === 'loading'}
+              >
+                {mode === 'scanning' ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      className="scan-sheet__video"
+                      playsInline
+                      muted
+                      autoPlay
+                    />
+                    {cameraError ? (
+                      <p className="scan-sheet__camera-hint">{cameraError}</p>
+                    ) : (
+                      <BarcodeHintIcon />
+                    )}
+                  </>
+                ) : null}
+
+                {mode === 'loading' ? (
+                  <div className="scan-sheet__loading" role="status">
+                    <LoadingSpinner />
+                    <span className="scan-sheet__loading-text">正在识别商品…</span>
+                  </div>
+                ) : null}
+
+                {mode === 'error' ? (
+                  <div className="scan-sheet__error-state" role="alert">
+                    <span className="scan-sheet__error-icon" aria-hidden="true">
+                      !
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <p
+                className={
+                  mode === 'error'
+                    ? 'scan-sheet__caption scan-sheet__caption--error'
+                    : 'scan-sheet__caption'
+                }
+              >
+                {captionText}
+              </p>
+            </>
+          )}
 
           {showManualAdd ? (
             <button
@@ -558,6 +786,20 @@ function BarcodeHintIcon() {
         <rect x="114" y="0" width="2" height="64" />
         <rect x="118" y="0" width="2" height="64" />
       </g>
+    </svg>
+  )
+}
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+      <path
+        d="M14.5 6 9 12l5.5 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
