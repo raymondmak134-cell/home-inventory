@@ -1,15 +1,15 @@
 import { useState } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { PublicUser } from '../api/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { SlidePage, SlideStack, type NavDirection } from '../components/SlideStack'
+import { SlidePage, SlideStack } from '../components/SlideStack'
+import { ProfileProvider, useProfileContext } from '../context/ProfileContext'
+import { appRoutes } from '../routes'
 import { AccountSettingsPage } from './AccountSettingsPage'
 import { AdminUsersPage } from './AdminUsersPage'
-import {
-  FamilyManagementPage,
-  type Family,
-} from './FamilyManagementPage'
+import { FamilyManagementPage } from './FamilyManagementPage'
 import { HomePage } from './HomePage'
-import { ProfilePage, type AppRoute, type ProfileSubRoute } from './ProfilePage'
+import { ProfilePage } from './ProfilePage'
 
 type AuthenticatedAppProps = {
   user: PublicUser
@@ -18,45 +18,45 @@ type AuthenticatedAppProps = {
   onUserUpdated: (user: PublicUser) => void
 }
 
-const DEFAULT_FAMILIES: Family[] = []
-
-export function AuthenticatedApp({
+function AuthenticatedRoutes({
   user,
   submitting = false,
   onLogout,
   onUserUpdated,
 }: AuthenticatedAppProps) {
-  const [route, setRoute] = useState<AppRoute>('home')
-  const [direction, setDirection] = useState<NavDirection>('forward')
-  const [nickname, setNickname] = useState('')
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [families, setFamilies] = useState<Family[]>(DEFAULT_FAMILIES)
+  const location = useLocation()
+  const {
+    profile,
+    families,
+    loading,
+    error,
+    setProfile,
+    setFamilies,
+    openProfile,
+    openSubPage,
+    goBack,
+    profileOpen,
+    currentMenuKey,
+    direction,
+  } = useProfileContext()
   const [logoutOpen, setLogoutOpen] = useState(false)
 
-  const profileOpen = route !== 'home'
-
-  function openProfile() {
-    setDirection('forward')
-    setRoute('profile')
+  const allowedPaths = new Set<string>([
+    appRoutes.home,
+    appRoutes.profile,
+    appRoutes.profileSettings,
+    appRoutes.profileFamilies,
+  ])
+  if (user.role === 'admin') {
+    allowedPaths.add(appRoutes.profileAdminUsers)
   }
 
-  function openSubPage(next: ProfileSubRoute) {
-    setDirection('forward')
-    setRoute(next)
+  if (!allowedPaths.has(location.pathname)) {
+    return <Navigate to={appRoutes.home} replace />
   }
 
-  function goBack() {
-    setDirection('back')
-    if (route === 'profile') {
-      setRoute('home')
-      return
-    }
-    setRoute('profile')
-  }
-
-  function handleSaveProfile(patch: { nickname?: string; avatarUrl?: string | null }) {
-    if (patch.nickname !== undefined) setNickname(patch.nickname)
-    if (patch.avatarUrl !== undefined) setAvatarUrl(patch.avatarUrl)
+  if (user.role !== 'admin' && location.pathname === appRoutes.profileAdminUsers) {
+    return <Navigate to={appRoutes.profile} replace />
   }
 
   function handleLogoutConfirm() {
@@ -66,32 +66,38 @@ export function AuthenticatedApp({
 
   return (
     <div className="authenticated-app">
-      <HomePage onOpenAccount={openProfile} />
+      <Routes>
+        <Route path={appRoutes.home} element={<HomePage onOpenAccount={openProfile} />} />
+      </Routes>
 
       <SlideStack active={profileOpen} direction={direction}>
         {profileOpen ? (
           <>
-            <SlidePage visible={route === 'profile'} direction={direction}>
+            <SlidePage visible={currentMenuKey === 'profile'} direction={direction}>
               <ProfilePage
                 user={user}
-                nickname={nickname}
-                avatarUrl={avatarUrl}
+                profile={profile}
+                loading={loading}
+                error={error}
                 onNavigate={openSubPage}
                 onBack={goBack}
                 onLogoutRequest={() => setLogoutOpen(true)}
               />
             </SlidePage>
 
-            <SlidePage visible={route === 'account-settings'} direction={direction}>
+            <SlidePage
+              visible={currentMenuKey === 'account-settings'}
+              direction={direction}
+            >
               <AccountSettingsPage
-                nickname={nickname}
-                avatarUrl={avatarUrl}
+                key={`${profile.nickname}:${profile.avatarUrl ?? ''}`}
+                profile={profile}
                 onBack={goBack}
-                onSave={handleSaveProfile}
+                onSaved={setProfile}
               />
             </SlidePage>
 
-            <SlidePage visible={route === 'family'} direction={direction}>
+            <SlidePage visible={currentMenuKey === 'family'} direction={direction}>
               <FamilyManagementPage
                 families={families}
                 onBack={goBack}
@@ -100,12 +106,8 @@ export function AuthenticatedApp({
             </SlidePage>
 
             {user.role === 'admin' ? (
-              <SlidePage visible={route === 'admin-users'} direction={direction}>
-                <AdminUsersPage
-                  user={user}
-                  onBack={goBack}
-                  onUserUpdated={onUserUpdated}
-                />
+              <SlidePage visible={currentMenuKey === 'admin-users'} direction={direction}>
+                <AdminUsersPage user={user} onBack={goBack} onUserUpdated={onUserUpdated} />
               </SlidePage>
             ) : null}
           </>
@@ -124,5 +126,13 @@ export function AuthenticatedApp({
         }}
       />
     </div>
+  )
+}
+
+export function AuthenticatedApp(props: AuthenticatedAppProps) {
+  return (
+    <ProfileProvider>
+      <AuthenticatedRoutes {...props} />
+    </ProfileProvider>
   )
 }

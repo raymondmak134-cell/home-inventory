@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { FormEvent } from 'react'
 import {
   fetchCurrentUser,
@@ -22,6 +23,7 @@ type FieldErrors = {
 }
 
 export default function App() {
+  const navigate = useNavigate()
   const [bootstrapping, setBootstrapping] = useState(true)
   const [user, setUser] = useState<PublicUser | null>(null)
   const [mode, setMode] = useState<AuthMode>('login')
@@ -142,6 +144,7 @@ export default function App() {
     } finally {
       setUser(null)
       setMode('login')
+      navigate('/')
       setUsername('admin')
       setPassword('')
       setConfirmPassword('')

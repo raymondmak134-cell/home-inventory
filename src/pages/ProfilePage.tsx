@@ -1,12 +1,9 @@
 import type { PublicUser } from '../api/auth'
+import type { UserProfile } from '../api/profile'
 import { AppPage } from '../components/AppPage'
 
-export type ProfileSubRoute = 'account-settings' | 'family' | 'admin-users'
-export type ProfileRoute = 'profile' | ProfileSubRoute
-export type AppRoute = 'home' | ProfileRoute
-
 type ProfileMenuItem = {
-  key: ProfileSubRoute
+  key: 'account-settings' | 'family' | 'admin-users'
   label: string
   description: string
   adminOnly?: boolean
@@ -33,29 +30,31 @@ const MENU_ITEMS: ProfileMenuItem[] = [
 
 type ProfilePageProps = {
   user: PublicUser
-  nickname: string
-  avatarUrl: string | null
-  onNavigate: (route: ProfileSubRoute) => void
+  profile: UserProfile
+  loading?: boolean
+  error?: string
+  onNavigate: (route: ProfileMenuItem['key']) => void
   onBack: () => void
   onLogoutRequest: () => void
 }
 
 export function ProfilePage({
   user,
-  nickname,
-  avatarUrl,
+  profile,
+  loading = false,
+  error = '',
   onNavigate,
   onBack,
   onLogoutRequest,
 }: ProfilePageProps) {
-  const displayName = nickname.trim() || user.username
+  const displayName = profile.nickname.trim() || user.username
 
   return (
     <AppPage title="个人主页" onBack={onBack} backLabel="返回首页">
       <section className="account-panel profile-panel" aria-label="个人信息">
         <div className="profile-panel__avatar" aria-hidden="true">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="profile-panel__avatar-img" />
+          {profile.avatarUrl ? (
+            <img src={profile.avatarUrl} alt="" className="profile-panel__avatar-img" />
           ) : (
             <DefaultAvatar />
           )}
@@ -64,6 +63,16 @@ export function ProfilePage({
         <p className="account-panel__meta">
           {user.role === 'admin' ? '管理员' : '普通用户'}
         </p>
+        {loading ? (
+          <p className="boot-status" role="status">
+            正在加载资料…
+          </p>
+        ) : null}
+        {error ? (
+          <p className="form-error is-visible" role="alert">
+            {error}
+          </p>
+        ) : null}
       </section>
 
       <nav className="app-menu" aria-label="个人主页功能">

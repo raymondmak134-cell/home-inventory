@@ -23,6 +23,16 @@ import {
   verifyPassword,
 } from './password.ts'
 import {
+  addFamilyMember,
+  createFamily,
+  deleteFamily,
+  getUserProfile,
+  listFamilies,
+  MAX_NICKNAME_LENGTH,
+  removeFamilyMember,
+  upsertUserProfile,
+} from './profile.ts'
+import {
   createSession,
   destroySession,
   readSessionUser,
@@ -169,6 +179,218 @@ export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean 
     })
     return c.json({ ok: true })
   })
+
+  const profile = new Hono<AppEnv>()
+
+  profile.use('*', async (c, next) => {
+    const user = c.get('user')
+    if (!user) {
+      return c.json(errorBody('UNAUTHENTICATED', '未登录'), 401)
+    }
+    await next()
+  })
+
+  profile.get('/', (c) => {
+    const user = c.get('user')!
+    const db = c.get('db')
+    return c.json({
+      profile: getUserProfile(db, user.id),
+      families: listFamilies(db, user.id).map((family) => ({
+        id: family.id,
+        name: family.name,
+        createdAt: family.createdAt,
+        members: family.members.map((member) => ({
+          id: member.id,
+          name: member.name,
+          createdAt: member.createdAt,
+        })),
+      })),
+    })
+  })
+
+  profile.patch('/', async (c) => {
+    const user = c.get('user')!
+    let body: { nickname?: unknown; avatarUrl?: unknown }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json(errorBody('INVALID_JSON', '请求格式无效'), 400)
+    }
+
+    const patch: { nickname?: string; avatarUrl?: string | null } = {}
+    if (body.nickname !== undefined) {
+      if (typeof body.nickname !== 'string') {
+        return c.json(errorBody('INVALID_NICKNAME', '昵称格式无效'), 400)
+      }
+      patch.nickname = body.nickname.trim()
+      if (patch.nickname.length > MAX_NICKNAME_LENGTH) {
+        return c.json(errorBody('INVALID_NICKNAME', '昵称不能超过20字'), 400)
+      }
+    }
+    if (body.avatarUrl !== undefined) {
+      if (body.avatarUrl !== null && typeof body.avatarUrl !== 'string') {
+        return c.json(errorBody('INVALID_AVATAR', '头像格式无效'), 400)
+      }
+      patch.avatarUrl = body.avatarUrl
+    }
+
+    if (patch.nickname === undefined && patch.avatarUrl === undefined) {
+      return c.json(errorBody('EMPTY_PATCH', '没有需要更新的内容'), 400)
+    }
+
+    try {
+      const nextProfile = upsertUserProfile(c.get('db'), user.id, patch)
+      return c.json({ profile: nextProfile })
+    } catch (error) {
+      if (error instanceof Error && error.message === 'AVATAR_TOO_LARGE') {
+        return c.json(errorBody('AVATAR_TOO_LARGE', '头像文件过大'), 400)
+      }
+      return c.json(errorBody('UNKNOWN', '更新失败，请稍后重试'), 500)
+    }
+  })
+
+  profile.post('/password', async (c) => {
+    const user = c.get('user')!
+    let body: { currentPassword?: unknown; newPassword?: unknown }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json(errorBody('INVALID_JSON', '请求格式无效'), 400)
+    }
+
+    const currentPassword =
+      typeof body.currentPassword === 'string' ? body.currentPassword : ''
+    const newPassword = typeof body.newPassword === 'string' ? body.newPassword : ''
+
+    if (!currentPassword) {
+      return c.json(errorBody('INVALID_PASSWORD', '请输入当前密码', 'password'), 400)
+    }
+    const passwordError = validatePassword(newPassword)
+    if (passwordError) {
+      return c.json(errorBody('INVALID_PASSWORD', passwordError, 'password'), 400)
+    }
+
+    const row = findUserById(c.get('db'), user.id)
+    if (!row || !(await verifyPassword(currentPassword, row.password_hash))) {
+      return c.json(errorBody('INVALID_PASSWORD', '当前密码错误', 'password'), 400)
+    }
+
+    updateUser(c.get('db'), user.id, {
+      passwordHash: await hashPassword(newPassword),
+    })
+    destroyUserSessions(c.get('db'), user.id)
+
+    const token = createSession(c.get('db'), user.id)
+    setCookie(c, SESSION_COOKIE, token, sessionCookieOptions(c.get('secureCookies')))
+    return c.json({ ok: true })
+  })
+
+  profile.post('/families', async (c) => {
+    const user = c.get('user')!
+    let body: { name?: unknown }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json(errorBody('INVALID_JSON', '请求格式无效'), 400)
+    }
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      return c.json(errorBody('INVALID_NAME', '请输入家庭名称'), 400)
+    }
+
+    try {
+      const family = createFamily(c.get('db'), user.id, body.name)
+      return c.json(
+        {
+          family: {
+            id: family.id,
+            name: family.name,
+            createdAt: family.createdAt,
+            members: [],
+          },
+        },
+        201,
+      )
+    } catch (error) {
+      if (error instanceof Error && error.message === 'FAMILY_NAME_TOO_LONG') {
+        return c.json(errorBody('INVALID_NAME', '家庭名称过长'), 400)
+      }
+      return c.json(errorBody('UNKNOWN', '添加失败，请稍后重试'), 500)
+    }
+  })
+
+  profile.delete('/families/:id', (c) => {
+    const user = c.get('user')!
+    const familyId = Number(c.req.param('id'))
+    if (!Number.isInteger(familyId) || familyId <= 0) {
+      return c.json(errorBody('NOT_FOUND', '家庭不存在'), 404)
+    }
+    if (!deleteFamily(c.get('db'), user.id, familyId)) {
+      return c.json(errorBody('NOT_FOUND', '家庭不存在'), 404)
+    }
+    return c.json({ ok: true })
+  })
+
+  profile.post('/families/:id/members', async (c) => {
+    const user = c.get('user')!
+    const familyId = Number(c.req.param('id'))
+    if (!Number.isInteger(familyId) || familyId <= 0) {
+      return c.json(errorBody('NOT_FOUND', '家庭不存在'), 404)
+    }
+
+    let body: { name?: unknown }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json(errorBody('INVALID_JSON', '请求格式无效'), 400)
+    }
+    if (typeof body.name !== 'string' || !body.name.trim()) {
+      return c.json(errorBody('INVALID_NAME', '请输入成员昵称'), 400)
+    }
+
+    try {
+      const member = addFamilyMember(c.get('db'), user.id, familyId, body.name)
+      return c.json(
+        {
+          member: {
+            id: member.id,
+            name: member.name,
+            createdAt: member.createdAt,
+          },
+        },
+        201,
+      )
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'FAMILY_NOT_FOUND') {
+          return c.json(errorBody('NOT_FOUND', '家庭不存在'), 404)
+        }
+        if (error.message === 'MEMBER_NAME_TOO_LONG') {
+          return c.json(errorBody('INVALID_NAME', '成员昵称过长'), 400)
+        }
+      }
+      return c.json(errorBody('UNKNOWN', '添加失败，请稍后重试'), 500)
+    }
+  })
+
+  profile.delete('/families/:familyId/members/:memberId', (c) => {
+    const user = c.get('user')!
+    const familyId = Number(c.req.param('familyId'))
+    const memberId = Number(c.req.param('memberId'))
+    if (
+      !Number.isInteger(familyId) ||
+      familyId <= 0 ||
+      !Number.isInteger(memberId) ||
+      memberId <= 0
+    ) {
+      return c.json(errorBody('NOT_FOUND', '成员不存在'), 404)
+    }
+    if (!removeFamilyMember(c.get('db'), user.id, familyId, memberId)) {
+      return c.json(errorBody('NOT_FOUND', '成员不存在'), 404)
+    }
+    return c.json({ ok: true })
+  })
+
+  app.route('/api/profile', profile)
 
   const admin = new Hono<AppEnv>()
 

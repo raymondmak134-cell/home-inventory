@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -8,6 +9,14 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
+
+function renderApp(initialEntries: string[] = ['/']) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <App />
+    </MemoryRouter>,
+  )
+}
 
 function mockAuthApis(options?: {
   me?: { id: number; username: string; role?: 'admin' | 'user'; createdAt: string } | null
@@ -18,12 +27,24 @@ function mockAuthApis(options?: {
     | { user: { id: number; username: string; role?: 'admin' | 'user'; createdAt: string } }
     | { error: { code: string; message: string; field?: string } }
   users?: Array<{ id: number; username: string; role: 'admin' | 'user'; createdAt: string }>
+  profile?: { nickname: string; avatarUrl: string | null }
+  families?: Array<{
+    id: number
+    name: string
+    createdAt: string
+    members: Array<{ id: number; name: string; createdAt: string }>
+  }>
 }) {
   const me = options?.me === undefined ? null : options.me
+  let profile = options?.profile ?? { nickname: '', avatarUrl: null }
+  let families = options?.families ?? []
+
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      const method = (init?.method ?? 'GET').toUpperCase()
+
       if (url.endsWith('/api/auth/me')) {
         if (!me) {
           return new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: '未登录' } }), {
@@ -75,6 +96,92 @@ function mockAuthApis(options?: {
           headers: { 'content-type': 'application/json' },
         })
       }
+      if (url.endsWith('/api/profile') && method === 'GET') {
+        return new Response(JSON.stringify({ profile, families }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/profile') && method === 'PATCH') {
+        const body = init?.body ? JSON.parse(String(init.body)) : {}
+        profile = {
+          nickname: body.nickname ?? profile.nickname,
+          avatarUrl: body.avatarUrl ?? profile.avatarUrl,
+        }
+        return new Response(JSON.stringify({ profile }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/profile/password') && method === 'POST') {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/profile/families') && method === 'POST') {
+        const body = init?.body ? JSON.parse(String(init.body)) : {}
+        const family = {
+          id: families.length + 1,
+          name: body.name,
+          createdAt: '2026-01-01 00:00:00',
+          members: [],
+        }
+        families = [...families, family]
+        return new Response(JSON.stringify({ family }), {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.match(/\/api\/profile\/families\/\d+$/) && method === 'DELETE') {
+        const id = Number(url.split('/').pop())
+        families = families.filter((family) => family.id !== id)
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.match(/\/api\/profile\/families\/\d+\/members$/) && method === 'POST') {
+        const familyId = Number(url.split('/').slice(-2)[0])
+        const body = init?.body ? JSON.parse(String(init.body)) : {}
+        families = families.map((family) =>
+          family.id === familyId
+            ? {
+                ...family,
+                members: [
+                  ...family.members,
+                  {
+                    id: family.members.length + 1,
+                    name: body.name,
+                    createdAt: '2026-01-01 00:00:00',
+                  },
+                ],
+              }
+            : family,
+        )
+        const member = families.find((family) => family.id === familyId)?.members.at(-1)
+        return new Response(JSON.stringify({ member }), {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.match(/\/api\/profile\/families\/\d+\/members\/\d+$/) && method === 'DELETE') {
+        const parts = url.split('/')
+        const memberId = Number(parts.pop())
+        const familyId = Number(parts.pop())
+        families = families.map((family) =>
+          family.id === familyId
+            ? {
+                ...family,
+                members: family.members.filter((member) => member.id !== memberId),
+              }
+            : family,
+        )
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
       if (url.endsWith('/api/admin/users')) {
         return new Response(
           JSON.stringify({
@@ -104,7 +211,7 @@ describe('登录页', () => {
   })
 
   it('renders the designed login shell', async () => {
-    render(<App />)
+    renderApp()
     expect(await screen.findByRole('heading', { name: '家仓' })).toBeInTheDocument()
     expect(screen.getByText('不必盲目加仓，好物存进家仓')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: '登录' })).toHaveAttribute(
@@ -118,7 +225,7 @@ describe('登录页', () => {
 
   it('toggles password visibility for mobile keyboard input', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     const password = screen.getByLabelText('密码')
@@ -132,7 +239,7 @@ describe('登录页', () => {
 
   it('switches to register mode from the footer link', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('button', { name: '没有账号？去注册一个' }))
@@ -145,7 +252,7 @@ describe('登录页', () => {
 
   it('shows reserved-height field errors on empty register submit', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('tab', { name: '注册账号' }))
@@ -162,7 +269,7 @@ describe('登录页', () => {
 
   it('rejects mismatched confirm password on register', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('tab', { name: '注册账号' }))
@@ -176,7 +283,7 @@ describe('登录页', () => {
 
   it('validates register password rule in realtime', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.click(screen.getByRole('tab', { name: '注册账号' }))
@@ -207,7 +314,7 @@ describe('登录页', () => {
         },
       },
     })
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.clear(screen.getByLabelText('账号'))
@@ -236,7 +343,7 @@ describe('登录页', () => {
         },
       },
     })
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.clear(screen.getByLabelText('账号'))
@@ -273,7 +380,7 @@ describe('登录页', () => {
         },
       ],
     })
-    render(<App />)
+    renderApp()
 
     expect(await screen.findByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '个人主页' }))
@@ -298,7 +405,7 @@ describe('登录页', () => {
         createdAt: '2026-01-01 00:00:00',
       },
     })
-    render(<App />)
+    renderApp()
 
     await user.click(await screen.findByRole('button', { name: '个人主页' }))
     await user.click(screen.getByRole('button', { name: '退出登录' }))
@@ -309,6 +416,21 @@ describe('登录页', () => {
     await user.click(screen.getByRole('button', { name: '退出' }))
 
     expect(await screen.findByRole('heading', { name: '家仓' })).toBeInTheDocument()
+  })
+
+  it('opens dedicated routes for profile sub pages', async () => {
+    mockAuthApis({
+      me: {
+        id: 1,
+        username: 'demo',
+        role: 'user',
+        createdAt: '2026-01-01 00:00:00',
+      },
+    })
+    renderApp(['/profile/settings'])
+
+    expect(await screen.findByRole('heading', { name: '账号设置', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存资料' })).toBeInTheDocument()
   })
 
   it('shows API field errors from the backend', async () => {
@@ -322,7 +444,7 @@ describe('登录页', () => {
         },
       },
     })
-    render(<App />)
+    renderApp()
     await screen.findByRole('button', { name: '登录' })
 
     await user.type(screen.getByLabelText('密码'), 'badpass')

@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { ensureProfileTables } from './profile.ts'
 
 export type UserRole = 'admin' | 'user'
 
@@ -76,6 +77,7 @@ export function createDatabase(dbPath = resolveDbPath()): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
   `)
   ensureRoleColumn(db)
+  ensureProfileTables(db)
   promoteConfiguredAdmin(db)
   return db
 }

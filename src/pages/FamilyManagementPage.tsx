@@ -1,25 +1,17 @@
 import { useId, useState } from 'react'
+import type { Family } from '../api/profile'
+import {
+  addFamilyMemberApi,
+  createFamily,
+  deleteFamilyApi,
+  removeFamilyMemberApi,
+} from '../api/profile'
 import { AppPage } from '../components/AppPage'
-
-export type FamilyMember = {
-  id: string
-  name: string
-}
-
-export type Family = {
-  id: string
-  name: string
-  members: FamilyMember[]
-}
 
 type FamilyManagementPageProps = {
   families: Family[]
   onBack: () => void
   onChange: (families: Family[]) => void
-}
-
-function createId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function FamilyManagementPage({
@@ -28,48 +20,76 @@ export function FamilyManagementPage({
   onChange,
 }: FamilyManagementPageProps) {
   const [newFamilyName, setNewFamilyName] = useState('')
-  const [memberDrafts, setMemberDrafts] = useState<Record<string, string>>({})
+  const [memberDrafts, setMemberDrafts] = useState<Record<number, string>>({})
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
   const familyNameId = useId()
 
-  function handleAddFamily() {
+  async function handleAddFamily() {
     const name = newFamilyName.trim()
-    if (!name) return
-    onChange([
-      ...families,
-      {
-        id: createId('family'),
-        name,
-        members: [],
-      },
-    ])
+    if (!name || busy) return
+    setBusy(true)
+    setError('')
+    const result = await createFamily(name)
+    setBusy(false)
+    if ('error' in result) {
+      setError(result.error.message)
+      return
+    }
+    onChange([...families, { ...result.family, members: [] }])
     setNewFamilyName('')
   }
 
-  function handleDeleteFamily(familyId: string) {
+  async function handleDeleteFamily(familyId: number) {
     const family = families.find((item) => item.id === familyId)
-    if (!family) return
+    if (!family || busy) return
     const confirmed = window.confirm(`确定删除家庭「${family.name}」吗？`)
     if (!confirmed) return
+
+    setBusy(true)
+    setError('')
+    const result = await deleteFamilyApi(familyId)
+    setBusy(false)
+    if ('error' in result) {
+      setError(result.error.message)
+      return
+    }
     onChange(families.filter((item) => item.id !== familyId))
   }
 
-  function handleAddMember(familyId: string) {
+  async function handleAddMember(familyId: number) {
     const name = (memberDrafts[familyId] ?? '').trim()
-    if (!name) return
+    if (!name || busy) return
+
+    setBusy(true)
+    setError('')
+    const result = await addFamilyMemberApi(familyId, name)
+    setBusy(false)
+    if ('error' in result) {
+      setError(result.error.message)
+      return
+    }
+
     onChange(
       families.map((family) =>
         family.id === familyId
-          ? {
-              ...family,
-              members: [...family.members, { id: createId('member'), name }],
-            }
+          ? { ...family, members: [...family.members, result.member] }
           : family,
       ),
     )
     setMemberDrafts((current) => ({ ...current, [familyId]: '' }))
   }
 
-  function handleRemoveMember(familyId: string, memberId: string) {
+  async function handleRemoveMember(familyId: number, memberId: number) {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    const result = await removeFamilyMemberApi(familyId, memberId)
+    setBusy(false)
+    if ('error' in result) {
+      setError(result.error.message)
+      return
+    }
     onChange(
       families.map((family) =>
         family.id === familyId
@@ -95,11 +115,17 @@ export function FamilyManagementPage({
                 type="text"
                 value={newFamilyName}
                 placeholder="例如：我的家"
+                disabled={busy}
                 onChange={(event) => setNewFamilyName(event.target.value)}
               />
             </label>
           </div>
-          <button type="button" className="ghost-btn app-inline-row__btn" onClick={handleAddFamily}>
+          <button
+            type="button"
+            className="ghost-btn app-inline-row__btn"
+            disabled={busy}
+            onClick={() => void handleAddFamily()}
+          >
             添加
           </button>
         </div>
@@ -107,6 +133,12 @@ export function FamilyManagementPage({
 
       <section className="app-section" aria-label="家庭列表">
         <h2 className="account-panel__title">我的家庭</h2>
+
+        {error ? (
+          <p className="form-error is-visible" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         {families.length === 0 ? (
           <p className="boot-status app-empty">还没有家庭，先添加一个吧。</p>
@@ -119,7 +151,8 @@ export function FamilyManagementPage({
                   <button
                     type="button"
                     className="admin-panel__refresh is-danger"
-                    onClick={() => handleDeleteFamily(family.id)}
+                    disabled={busy}
+                    onClick={() => void handleDeleteFamily(family.id)}
                   >
                     删除
                   </button>
@@ -137,8 +170,9 @@ export function FamilyManagementPage({
                           <button
                             type="button"
                             className="admin-panel__refresh is-danger"
+                            disabled={busy}
                             aria-label={`移除 ${member.name}`}
-                            onClick={() => handleRemoveMember(family.id, member.id)}
+                            onClick={() => void handleRemoveMember(family.id, member.id)}
                           >
                             移除
                           </button>
@@ -155,6 +189,7 @@ export function FamilyManagementPage({
                           type="text"
                           value={memberDrafts[family.id] ?? ''}
                           placeholder="成员昵称"
+                          disabled={busy}
                           aria-label={`为 ${family.name} 添加成员`}
                           onChange={(event) =>
                             setMemberDrafts((current) => ({
@@ -168,7 +203,8 @@ export function FamilyManagementPage({
                     <button
                       type="button"
                       className="ghost-btn app-inline-row__btn"
-                      onClick={() => handleAddMember(family.id)}
+                      disabled={busy}
+                      onClick={() => void handleAddMember(family.id)}
                     >
                       添加成员
                     </button>

@@ -1,27 +1,24 @@
 import { useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import type { UserProfile } from '../api/profile'
+import { changePassword, updateProfile } from '../api/profile'
 import { AppPage } from '../components/AppPage'
-import { validateRegisterPassword } from '../validation/password'
 
 type AccountSettingsPageProps = {
-  nickname: string
-  avatarUrl: string | null
+  profile: UserProfile
   onBack: () => void
-  onSave: (patch: { nickname?: string; avatarUrl?: string | null }) => void
+  onSaved: (profile: UserProfile) => void
 }
 
-export function AccountSettingsPage({
-  nickname,
-  avatarUrl,
-  onBack,
-  onSave,
-}: AccountSettingsPageProps) {
-  const [draftNickname, setDraftNickname] = useState(nickname)
-  const [draftAvatarUrl, setDraftAvatarUrl] = useState<string | null>(avatarUrl)
+export function AccountSettingsPage({ profile, onBack, onSaved }: AccountSettingsPageProps) {
+  const [draftNickname, setDraftNickname] = useState(profile.nickname)
+  const [draftAvatarUrl, setDraftAvatarUrl] = useState<string | null>(profile.avatarUrl)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
   const [savedMessage, setSavedMessage] = useState('')
+  const [submittingProfile, setSubmittingProfile] = useState(false)
+  const [submittingPassword, setSubmittingPassword] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const nicknameId = useId()
   const currentPasswordId = useId()
@@ -46,15 +43,23 @@ export function AccountSettingsPage({
     reader.readAsDataURL(file)
   }
 
-  function handleSaveProfile() {
-    onSave({
+  async function handleSaveProfile() {
+    setSubmittingProfile(true)
+    setSavedMessage('')
+    const result = await updateProfile({
       nickname: draftNickname.trim(),
       avatarUrl: draftAvatarUrl,
     })
+    setSubmittingProfile(false)
+    if ('error' in result) {
+      setSavedMessage(result.error.message)
+      return
+    }
+    onSaved(result.profile)
     setSavedMessage('资料已保存')
   }
 
-  function handlePasswordSubmit(event: FormEvent) {
+  async function handlePasswordSubmit(event: FormEvent) {
     event.preventDefault()
     setPasswordMessage('')
 
@@ -62,17 +67,21 @@ export function AccountSettingsPage({
       setPasswordMessage('请输入当前密码')
       return
     }
-    const passwordError = validateRegisterPassword(newPassword)
-    if (passwordError) {
-      setPasswordMessage(passwordError)
-      return
-    }
     if (newPassword !== confirmPassword) {
       setPasswordMessage('两次输入的新密码不一致')
       return
     }
 
-    setPasswordMessage('密码修改功能即将上线，当前为演示保存')
+    setSubmittingPassword(true)
+    const result = await changePassword(currentPassword, newPassword)
+    setSubmittingPassword(false)
+
+    if ('error' in result) {
+      setPasswordMessage(result.error.message)
+      return
+    }
+
+    setPasswordMessage('密码已修改')
     setCurrentPassword('')
     setNewPassword('')
     setConfirmPassword('')
@@ -125,20 +134,25 @@ export function AccountSettingsPage({
 
         <p
           id={savedMessageId}
-          className={savedMessage ? 'boot-status' : 'form-error'}
+          className={savedMessage === '资料已保存' ? 'boot-status' : savedMessage ? 'form-error is-visible' : 'form-error'}
           role={savedMessage ? 'status' : undefined}
         >
           {savedMessage || ''}
         </p>
 
-        <button type="button" className="submit-btn" onClick={handleSaveProfile}>
-          保存资料
+        <button
+          type="button"
+          className="submit-btn"
+          disabled={submittingProfile}
+          onClick={() => void handleSaveProfile()}
+        >
+          {submittingProfile ? '保存中…' : '保存资料'}
         </button>
       </section>
 
       <section className="app-section" aria-label="修改密码">
         <h2 className="account-panel__title">修改密码</h2>
-        <form className="auth-form" onSubmit={handlePasswordSubmit}>
+        <form className="auth-form" onSubmit={(event) => void handlePasswordSubmit(event)}>
           <div className="field-block">
             <label className="field" htmlFor={currentPasswordId}>
               <span className="sr-only">当前密码</span>
@@ -184,19 +198,19 @@ export function AccountSettingsPage({
           <p
             id={passwordMessageId}
             className={
-              passwordMessage
-                ? passwordMessage.includes('即将上线')
-                  ? 'boot-status'
-                  : 'form-error is-visible'
-                : 'form-error'
+              passwordMessage === '密码已修改'
+                ? 'boot-status'
+                : passwordMessage
+                  ? 'form-error is-visible'
+                  : 'form-error'
             }
             role={passwordMessage ? 'alert' : undefined}
           >
             {passwordMessage || ''}
           </p>
 
-          <button type="submit" className="submit-btn">
-            修改密码
+          <button type="submit" className="submit-btn" disabled={submittingPassword}>
+            {submittingPassword ? '修改中…' : '修改密码'}
           </button>
         </form>
       </section>
