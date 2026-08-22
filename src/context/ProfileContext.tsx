@@ -2,7 +2,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -15,8 +14,6 @@ import {
   menuKeyToPath,
   profileBackPath,
   profilePathToMenuKey,
-  routeDepth,
-  type AuthenticatedPath,
 } from '../routes'
 
 type ProfileContextValue = {
@@ -32,7 +29,6 @@ type ProfileContextValue = {
   goBack: () => void
   profileOpen: boolean
   currentMenuKey: ReturnType<typeof profilePathToMenuKey>
-  direction: 'forward' | 'back'
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null)
@@ -44,8 +40,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [families, setFamilies] = useState<Family[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [direction, setDirection] = useState<'forward' | 'back'>('forward')
-  const previousPath = useRef(location.pathname)
 
   const profileOpen = isProfilePath(location.pathname)
   const currentMenuKey = profilePathToMenuKey(location.pathname)
@@ -80,30 +74,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  useEffect(() => {
-    const prev = previousPath.current
-    const next = location.pathname
-    if (prev !== next) {
-      setDirection(routeDepth(next) >= routeDepth(prev) ? 'forward' : 'back')
-      previousPath.current = next
-    }
-  }, [location.pathname])
-
-  function navigateWithDirection(path: AuthenticatedPath, nextDirection: 'forward' | 'back') {
-    setDirection(nextDirection)
-    navigate(path)
-  }
-
   function openProfile() {
-    navigateWithDirection(appRoutes.profile, 'forward')
+    navigate(appRoutes.profile)
   }
 
   function openSubPage(key: 'account-settings' | 'family' | 'admin-users') {
-    navigateWithDirection(menuKeyToPath(key), 'forward')
+    navigate(menuKeyToPath(key))
   }
 
   function goBack() {
-    navigateWithDirection(profileBackPath(location.pathname), 'back')
+    navigate(profileBackPath(location.pathname))
   }
 
   return (
@@ -121,7 +101,6 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
         goBack,
         profileOpen,
         currentMenuKey,
-        direction,
       }}
     >
       {children}

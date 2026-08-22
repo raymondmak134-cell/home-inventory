@@ -1,24 +1,17 @@
 import type { ReactNode } from 'react'
 
-export type NavDirection = 'forward' | 'back'
+export type SlideLayer = 'active' | 'under' | 'offscreen'
 
 type SlideStackProps = {
   active: boolean
-  direction: NavDirection
   children: ReactNode
 }
 
-/** 覆盖在首页之上的全屏滑动层 */
-export function SlideStack({ active, direction, children }: SlideStackProps) {
+/** 覆盖在首页之上的全屏滑动层：进入时从右滑入，返回时向右滑出 */
+export function SlideStack({ active, children }: SlideStackProps) {
   return (
     <div
-      className={[
-        'slide-stack',
-        active ? 'is-active' : '',
-        direction === 'forward' ? 'is-forward' : 'is-back',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={['slide-stack', active ? 'is-active' : ''].filter(Boolean).join(' ')}
       aria-hidden={!active}
     >
       {children}
@@ -27,25 +20,33 @@ export function SlideStack({ active, direction, children }: SlideStackProps) {
 }
 
 type SlidePageProps = {
-  visible: boolean
-  direction: NavDirection
+  layer: SlideLayer
   children: ReactNode
 }
 
-/** 栈内子页面的滑动切换 */
-export function SlidePage({ visible, direction, children }: SlidePageProps) {
+/** 栈内子页面：active 当前页，under 上一级留底，offscreen 在右侧等待进入 */
+export function SlidePage({ layer, children }: SlidePageProps) {
   return (
     <div
       className={[
         'slide-page',
-        visible ? 'is-visible' : '',
-        direction === 'forward' ? 'is-forward' : 'is-back',
+        layer === 'active' ? 'is-active' : '',
+        layer === 'under' ? 'is-under' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-hidden={!visible}
+      aria-hidden={layer === 'offscreen'}
     >
       {children}
     </div>
   )
+}
+
+export function getSlideLayer(
+  pageKey: 'profile' | 'account-settings' | 'family' | 'admin-users',
+  currentKey: 'profile' | 'account-settings' | 'family' | 'admin-users',
+): SlideLayer {
+  if (pageKey === currentKey) return 'active'
+  if (pageKey === 'profile' && currentKey !== 'profile') return 'under'
+  return 'offscreen'
 }

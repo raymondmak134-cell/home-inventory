@@ -721,21 +721,21 @@
   pointer-events: none;
   overflow: hidden auto;
   -webkit-overflow-scrolling: touch;
+  z-index: 0;
 }
 
-.slide-page.is-visible {
+.slide-page.is-under {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.slide-page.is-active {
   transform: translateX(0);
   visibility: visible;
   pointer-events: auto;
   z-index: 2;
-}
-
-.slide-stack.is-forward .slide-page:not(.is-visible) {
-  transform: translateX(100%);
-}
-
-.slide-stack.is-back .slide-page:not(.is-visible) {
-  transform: translateX(-100%);
 }
 
 /* —— 登录后通用页面（复用 login-page 白底与设计 token） —— */

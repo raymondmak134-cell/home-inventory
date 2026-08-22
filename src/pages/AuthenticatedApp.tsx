@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { PublicUser } from '../api/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { SlidePage, SlideStack } from '../components/SlideStack'
+import { SlidePage, SlideStack, getSlideLayer } from '../components/SlideStack'
 import { ProfileProvider, useProfileContext } from '../context/ProfileContext'
 import { appRoutes } from '../routes'
 import { AccountSettingsPage } from './AccountSettingsPage'
@@ -37,7 +37,6 @@ function AuthenticatedRoutes({
     goBack,
     profileOpen,
     currentMenuKey,
-    direction,
   } = useProfileContext()
   const [logoutOpen, setLogoutOpen] = useState(false)
 
@@ -70,47 +69,36 @@ function AuthenticatedRoutes({
         <Route path={appRoutes.home} element={<HomePage onOpenAccount={openProfile} />} />
       </Routes>
 
-      <SlideStack active={profileOpen} direction={direction}>
-        {profileOpen ? (
-          <>
-            <SlidePage visible={currentMenuKey === 'profile'} direction={direction}>
-              <ProfilePage
-                user={user}
-                profile={profile}
-                loading={loading}
-                error={error}
-                onNavigate={openSubPage}
-                onBack={goBack}
-                onLogoutRequest={() => setLogoutOpen(true)}
-              />
-            </SlidePage>
+      <SlideStack active={profileOpen}>
+        <SlidePage layer={getSlideLayer('profile', currentMenuKey)}>
+          <ProfilePage
+            user={user}
+            profile={profile}
+            loading={loading}
+            error={error}
+            onNavigate={openSubPage}
+            onBack={goBack}
+            onLogoutRequest={() => setLogoutOpen(true)}
+          />
+        </SlidePage>
 
-            <SlidePage
-              visible={currentMenuKey === 'account-settings'}
-              direction={direction}
-            >
-              <AccountSettingsPage
-                key={`${profile.nickname}:${profile.avatarUrl ?? ''}`}
-                profile={profile}
-                onBack={goBack}
-                onSaved={setProfile}
-              />
-            </SlidePage>
+        <SlidePage layer={getSlideLayer('account-settings', currentMenuKey)}>
+          <AccountSettingsPage
+            key={`${profile.nickname}:${profile.avatarUrl ?? ''}`}
+            profile={profile}
+            onBack={goBack}
+            onSaved={setProfile}
+          />
+        </SlidePage>
 
-            <SlidePage visible={currentMenuKey === 'family'} direction={direction}>
-              <FamilyManagementPage
-                families={families}
-                onBack={goBack}
-                onChange={setFamilies}
-              />
-            </SlidePage>
+        <SlidePage layer={getSlideLayer('family', currentMenuKey)}>
+          <FamilyManagementPage families={families} onBack={goBack} onChange={setFamilies} />
+        </SlidePage>
 
-            {user.role === 'admin' ? (
-              <SlidePage visible={currentMenuKey === 'admin-users'} direction={direction}>
-                <AdminUsersPage user={user} onBack={goBack} onUserUpdated={onUserUpdated} />
-              </SlidePage>
-            ) : null}
-          </>
+        {user.role === 'admin' ? (
+          <SlidePage layer={getSlideLayer('admin-users', currentMenuKey)}>
+            <AdminUsersPage user={user} onBack={goBack} onUserUpdated={onUserUpdated} />
+          </SlidePage>
         ) : null}
       </SlideStack>
 
