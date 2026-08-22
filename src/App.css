@@ -742,6 +742,18 @@
 .app-page {
   flex-direction: column;
   align-items: stretch;
+  --page-gutter: 1rem;
+}
+
+.app-page .login-shell {
+  padding-left: max(var(--page-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--page-gutter), env(safe-area-inset-right));
+}
+
+.app-page .top-nav,
+.app-page .mobile-top-nav {
+  padding-left: max(var(--page-gutter), env(safe-area-inset-left));
+  padding-right: max(var(--page-gutter), env(safe-area-inset-right));
 }
 
 .app-page__main {
