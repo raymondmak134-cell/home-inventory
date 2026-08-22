@@ -1233,19 +1233,19 @@
 .scan-sheet__preview-actions {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 0.25rem;
   margin-top: 1rem;
-  padding: 0 1.25rem;
+  padding: 0 16px;
 }
 
 .scan-sheet__preview-actions .scan-sheet__manual {
   margin-top: 0.75rem;
+  align-self: center;
 }
 
 .scan-sheet__preview-actions .submit-btn {
   width: 100%;
-  max-width: 16rem;
   margin-top: 0;
 }
 
