@@ -7,16 +7,13 @@ import {
   registerAccount,
   type PublicUser,
 } from './api/auth'
-import { HomePage } from './pages/HomePage'
-import { AccountManagementPage } from './pages/AccountManagementPage'
+import { AuthenticatedApp } from './pages/AuthenticatedApp'
 import {
   validateRegisterPassword,
 } from './validation/password'
 import './App.css'
 
 type AuthMode = 'login' | 'register'
-type AppScreen = 'home' | 'account'
-
 type FieldErrors = {
   username?: string
   password?: string
@@ -27,7 +24,6 @@ type FieldErrors = {
 export default function App() {
   const [bootstrapping, setBootstrapping] = useState(true)
   const [user, setUser] = useState<PublicUser | null>(null)
-  const [screen, setScreen] = useState<AppScreen>('home')
   const [mode, setMode] = useState<AuthMode>('login')
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
@@ -129,7 +125,6 @@ export default function App() {
       }
 
       setUser(result.user)
-      setScreen('home')
       setPassword('')
       setConfirmPassword('')
       setErrors({})
@@ -146,7 +141,6 @@ export default function App() {
       await logoutAccount()
     } finally {
       setUser(null)
-      setScreen('home')
       setMode('login')
       setUsername('admin')
       setPassword('')
@@ -181,19 +175,14 @@ export default function App() {
   }
 
   if (user) {
-    if (screen === 'account') {
-      return (
-        <AccountManagementPage
-          user={user}
-          submitting={submitting}
-          onLogout={() => void handleLogout()}
-          onUserUpdated={setUser}
-          onBackHome={() => setScreen('home')}
-        />
-      )
-    }
-
-    return <HomePage onOpenAccount={() => setScreen('account')} />
+    return (
+      <AuthenticatedApp
+        user={user}
+        submitting={submitting}
+        onLogout={() => void handleLogout()}
+        onUserUpdated={setUser}
+      />
+    )
   }
 
   const isLogin = mode === 'login'

@@ -38,7 +38,7 @@ export function TopNav({
       <button
         type="button"
         className="top-nav__avatar"
-        aria-label="账号管理"
+        aria-label="个人主页"
         onClick={onAvatarClick}
       >
         <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">

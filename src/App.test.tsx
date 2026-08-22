@@ -215,7 +215,8 @@ describe('登录页', () => {
     await user.type(screen.getByLabelText('密码'), 'secret1')
     await user.click(screen.getByRole('button', { name: '登录' }))
 
-    expect(await screen.findByText('我的家')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
+    expect(screen.getByText('我的家', { selector: '.top-nav__family-name' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
     expect(screen.getByText('请给家仓加个仓吧。')).toBeInTheDocument()
     expect(
@@ -223,7 +224,7 @@ describe('登录页', () => {
     ).toBeInTheDocument()
   })
 
-  it('opens account management from the avatar for admin users', async () => {
+  it('opens profile page from avatar and admin account management', async () => {
     const user = userEvent.setup()
     mockAuthApis({
       me: {
@@ -249,13 +250,40 @@ describe('登录页', () => {
     })
     render(<App />)
 
-    expect(await screen.findByText('我的家')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '账号管理' }))
+    expect(await screen.findByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '个人主页' }))
 
-    expect(await screen.findByRole('button', { name: '返回首页' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '账号管理' })).toBeInTheDocument()
-    expect(screen.getByText('testuser01')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '个人主页', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '退出登录' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /账号管理/ }))
+
+    expect(await screen.findByRole('heading', { name: '账号管理', level: 1 })).toBeInTheDocument()
+    expect(await screen.findByText('testuser01')).toBeInTheDocument()
     expect(screen.getAllByText(/管理员/).length).toBeGreaterThan(0)
+  })
+
+  it('shows logout confirmation before signing out', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      me: {
+        id: 1,
+        username: 'demo',
+        role: 'user',
+        createdAt: '2026-01-01 00:00:00',
+      },
+    })
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '个人主页' }))
+    await user.click(screen.getByRole('button', { name: '退出登录' }))
+
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByText('确定要退出当前账号吗？')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '退出' }))
+
+    expect(await screen.findByRole('heading', { name: '家仓' })).toBeInTheDocument()
   })
 
   it('shows API field errors from the backend', async () => {
