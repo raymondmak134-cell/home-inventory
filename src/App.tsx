@@ -8,6 +8,8 @@ import {
   registerAccount,
   type PublicUser,
 } from './api/auth'
+import { LockIcon, UserIcon } from './components/fieldIcons'
+import { TextField } from './components/TextField'
 import { AuthenticatedApp } from './pages/AuthenticatedApp'
 import {
   validateRegisterPassword,
@@ -30,16 +32,8 @@ export default function App() {
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
-  const usernameId = useId()
-  const passwordId = useId()
-  const confirmPasswordId = useId()
-  const usernameErrorId = useId()
-  const passwordErrorId = useId()
-  const confirmPasswordErrorId = useId()
   const formErrorId = useId()
 
   useEffect(() => {
@@ -156,8 +150,6 @@ export default function App() {
   function switchMode(next: AuthMode) {
     setMode(next)
     setErrors({})
-    setShowPassword(false)
-    setShowConfirmPassword(false)
     setConfirmPassword('')
     if (next === 'register') {
       setUsername('')
@@ -189,11 +181,6 @@ export default function App() {
   }
 
   const isLogin = mode === 'login'
-  const passwordInputType = showPassword ? 'text' : 'password'
-  const confirmPasswordInputType = showConfirmPassword ? 'text' : 'password'
-  const usernameInvalid = Boolean(errors.username)
-  const passwordInvalid = Boolean(errors.password)
-  const confirmPasswordInvalid = Boolean(errors.confirmPassword)
   const formInvalid = Boolean(errors.form)
 
   return (
@@ -244,160 +231,85 @@ export default function App() {
           noValidate
           aria-describedby={formInvalid ? formErrorId : undefined}
         >
-          <div className="field-block">
-            <label
-              className={usernameInvalid ? 'field is-error' : 'field'}
-              htmlFor={usernameId}
-            >
-              <span className="sr-only">账号</span>
-              <span className="field__icon" aria-hidden="true">
-                <UserIcon />
-              </span>
-              <input
-                id={usernameId}
-                name="username"
-                type="text"
-                inputMode="text"
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                enterKeyHint="next"
-                placeholder="请输入账号"
-                value={username}
-                aria-invalid={usernameInvalid}
-                aria-describedby={usernameErrorId}
-                onChange={(event) => {
-                  setUsername(event.target.value)
-                  if (errors.username || errors.form) {
-                    setErrors((current) => ({
-                      ...current,
-                      username: undefined,
-                      form: undefined,
-                    }))
-                  }
-                }}
-              />
-            </label>
-            <p
-              id={usernameErrorId}
-              className={usernameInvalid ? 'field-error is-visible' : 'field-error'}
-              role={usernameInvalid ? 'alert' : undefined}
-            >
-              {errors.username ?? ''}
-            </p>
-          </div>
+          <TextField
+            label="账号"
+            name="username"
+            inputMode="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            placeholder="请输入账号"
+            icon={<UserIcon />}
+            value={username}
+            error={errors.username}
+            onValueChange={(next) => {
+              setUsername(next)
+              if (errors.username || errors.form) {
+                setErrors((current) => ({
+                  ...current,
+                  username: undefined,
+                  form: undefined,
+                }))
+              }
+            }}
+          />
 
-          <div className="field-block">
-            <label
-              className={passwordInvalid ? 'field is-error' : 'field'}
-              htmlFor={passwordId}
-            >
-              <span className="sr-only">密码</span>
-              <span className="field__icon" aria-hidden="true">
-                <LockIcon />
-              </span>
-              <input
-                id={passwordId}
-                name="password"
-                type={passwordInputType}
-                inputMode="text"
-                autoComplete={isLogin ? 'current-password' : 'new-password'}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                enterKeyHint={isLogin ? 'done' : 'next'}
-                placeholder="请输入密码"
-                value={password}
-                aria-invalid={passwordInvalid}
-                aria-describedby={passwordErrorId}
-                maxLength={isLogin ? undefined : 20}
-                onChange={(event) => {
-                  const nextPassword = event.target.value
-                  setPassword(nextPassword)
-                  if (mode === 'register') {
-                    syncRegisterPasswordErrors(nextPassword, confirmPassword)
-                    return
-                  }
-                  if (errors.password || errors.form) {
-                    setErrors((current) => ({
-                      ...current,
-                      password: undefined,
-                      form: undefined,
-                    }))
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="field__action"
-                aria-label={showPassword ? '隐藏密码' : '显示密码'}
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((current) => !current)}
-              >
-                {showPassword ? <EyeIcon /> : <EyeOffIcon />}
-              </button>
-            </label>
-            <p
-              id={passwordErrorId}
-              className={passwordInvalid ? 'field-error is-visible' : 'field-error'}
-              role={passwordInvalid ? 'alert' : undefined}
-            >
-              {errors.password ?? ''}
-            </p>
-          </div>
+          <TextField
+            label="密码"
+            name="password"
+            type="password"
+            allowReveal
+            inputMode="text"
+            autoComplete={isLogin ? 'current-password' : 'new-password'}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint={isLogin ? 'done' : 'next'}
+            placeholder="请输入密码"
+            icon={<LockIcon />}
+            maxLength={isLogin ? undefined : 20}
+            value={password}
+            error={errors.password}
+            onValueChange={(nextPassword) => {
+              setPassword(nextPassword)
+              if (mode === 'register') {
+                syncRegisterPasswordErrors(nextPassword, confirmPassword)
+                return
+              }
+              if (errors.password || errors.form) {
+                setErrors((current) => ({
+                  ...current,
+                  password: undefined,
+                  form: undefined,
+                }))
+              }
+            }}
+          />
 
           {!isLogin ? (
-            <div className="field-block">
-              <label
-                className={confirmPasswordInvalid ? 'field is-error' : 'field'}
-                htmlFor={confirmPasswordId}
-              >
-                <span className="sr-only">确认密码</span>
-                <span className="field__icon" aria-hidden="true">
-                  <LockIcon />
-                </span>
-                <input
-                  id={confirmPasswordId}
-                  name="confirmPassword"
-                  type={confirmPasswordInputType}
-                  inputMode="text"
-                  autoComplete="new-password"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  enterKeyHint="done"
-                  placeholder="请再次确认密码"
-                  value={confirmPassword}
-                  aria-invalid={confirmPasswordInvalid}
-                  aria-describedby={confirmPasswordErrorId}
-                  maxLength={20}
-                  onChange={(event) => {
-                    const nextConfirmPassword = event.target.value
-                    setConfirmPassword(nextConfirmPassword)
-                    syncRegisterPasswordErrors(password, nextConfirmPassword)
-                  }}
-                />
-                <button
-                  type="button"
-                  className="field__action"
-                  aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
-                  aria-pressed={showConfirmPassword}
-                  onClick={() => setShowConfirmPassword((current) => !current)}
-                >
-                  {showConfirmPassword ? <EyeIcon /> : <EyeOffIcon />}
-                </button>
-              </label>
-              <p
-                id={confirmPasswordErrorId}
-                className={
-                  confirmPasswordInvalid ? 'field-error is-visible' : 'field-error'
-                }
-                role={confirmPasswordInvalid ? 'alert' : undefined}
-              >
-                {errors.confirmPassword ?? ''}
-              </p>
-            </div>
+            <TextField
+              label="确认密码"
+              name="confirmPassword"
+              type="password"
+              allowReveal
+              inputMode="text"
+              autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
+              placeholder="请再次确认密码"
+              icon={<LockIcon />}
+              maxLength={20}
+              value={confirmPassword}
+              error={errors.confirmPassword}
+              onValueChange={(nextConfirmPassword) => {
+                setConfirmPassword(nextConfirmPassword)
+                syncRegisterPasswordErrors(password, nextConfirmPassword)
+              }}
+            />
           ) : null}
 
           <p
@@ -428,70 +340,5 @@ export default function App() {
         )}
       </main>
     </div>
-  )
-}
-
-function UserIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.7" />
-      <path
-        d="M5.5 18.5c1.6-3 3.8-4.5 6.5-4.5s4.9 1.5 6.5 4.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function LockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-      <rect
-        x="6"
-        y="10"
-        width="12"
-        height="10"
-        rx="2.2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M8.5 10V7.8a3.5 3.5 0 0 1 7 0V10"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function EyeOffIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-      <path
-        d="M3.5 12s3.2-6 8.5-6 8.5 6 8.5 6-3.2 6-8.5 6-8.5-6-8.5-6Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M4 20 20 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-      <path
-        d="M3.5 12s3.2-6 8.5-6 8.5 6 8.5 6-3.2 6-8.5 6-8.5-6-8.5-6Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
   )
 }

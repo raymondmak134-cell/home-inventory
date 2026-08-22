@@ -435,6 +435,45 @@ describe('登录页', () => {
     expect(screen.queryByRole('button', { name: '上传头像' })).not.toBeInTheDocument()
   })
 
+  it('reuses login-style validation on the change-password form', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      me: {
+        id: 1,
+        username: 'demo',
+        role: 'user',
+        createdAt: '2026-01-01 00:00:00',
+      },
+    })
+    renderApp(['/profile/settings'])
+
+    await screen.findByRole('button', { name: '修改密码' })
+
+    // 实时校验：新密码不满足规则时展示与注册页一致的错误
+    await user.type(screen.getByLabelText('新密码'), 'abc')
+    expect(screen.getByText('密码需为8-20位字母和数字组合')).toBeVisible()
+    expect(screen.getByLabelText('新密码')).toHaveAttribute('aria-invalid', 'true')
+
+    // 空提交：逐字段报错
+    await user.clear(screen.getByLabelText('新密码'))
+    await user.click(screen.getByRole('button', { name: '修改密码' }))
+    expect(screen.getByText('请输入当前密码')).toBeVisible()
+    expect(screen.getByText('请输入新密码')).toBeVisible()
+    expect(screen.getByText('请确认新密码')).toBeVisible()
+
+    // 密码可见性切换（与登录页一致的交互）
+    await user.click(screen.getByRole('button', { name: '显示新密码' }))
+    expect(screen.getByLabelText('新密码')).toHaveAttribute('type', 'text')
+
+    // 合法输入提交成功
+    await user.type(screen.getByLabelText('当前密码'), 'old12345')
+    await user.type(screen.getByLabelText('新密码'), 'new12345')
+    await user.type(screen.getByLabelText('确认新密码'), 'new12345')
+    await user.click(screen.getByRole('button', { name: '修改密码' }))
+
+    expect(await screen.findByText('密码已修改')).toBeVisible()
+  })
+
   it('shows API field errors from the backend', async () => {
     const user = userEvent.setup()
     mockAuthApis({

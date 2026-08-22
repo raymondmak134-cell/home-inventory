@@ -143,7 +143,8 @@
 
 .field:focus-within {
   background: #f3f4f6;
-  box-shadow: inset 0 0 0 1.5px transparent;
+  /* 激活（聚焦）状态：深色描边 */
+  box-shadow: inset 0 0 0 1.5px #111827;
 }
 
 .field.is-error {
