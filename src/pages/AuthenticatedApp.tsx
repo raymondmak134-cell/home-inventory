@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import type { PublicUser } from '../api/auth'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { SlidePage, SlideStack, getSlideLayer } from '../components/SlideStack'
+import { SlideStack, type MenuKey } from '../components/SlideStack'
 import { ProfileProvider, useProfileContext } from '../context/ProfileContext'
 import { appRoutes } from '../routes'
 import { AccountSettingsPage } from './AccountSettingsPage'
@@ -54,23 +54,21 @@ function AuthenticatedRoutes({
     return <Navigate to={appRoutes.home} replace />
   }
 
-  if (user.role !== 'admin' && location.pathname === appRoutes.profileAdminUsers) {
-    return <Navigate to={appRoutes.profile} replace />
-  }
-
   function handleLogoutConfirm() {
     setLogoutOpen(false)
     onLogout()
   }
 
-  return (
-    <div className="authenticated-app">
-      <Routes>
-        <Route path={appRoutes.home} element={<HomePage onOpenAccount={openProfile} />} />
-      </Routes>
+  const stack: readonly MenuKey[] = !profileOpen
+    ? []
+    : currentMenuKey === 'profile'
+      ? ['profile']
+      : ['profile', currentMenuKey]
 
-      <SlideStack active={profileOpen}>
-        <SlidePage layer={getSlideLayer('profile', currentMenuKey)}>
+  function renderStackPage(key: MenuKey) {
+    switch (key) {
+      case 'profile':
+        return (
           <ProfilePage
             user={user}
             profile={profile}
@@ -80,27 +78,32 @@ function AuthenticatedRoutes({
             onBack={goBack}
             onLogoutRequest={() => setLogoutOpen(true)}
           />
-        </SlidePage>
-
-        <SlidePage layer={getSlideLayer('account-settings', currentMenuKey)}>
+        )
+      case 'account-settings':
+        return (
           <AccountSettingsPage
             key={`${profile.nickname}:${profile.avatarUrl ?? ''}`}
             profile={profile}
             onBack={goBack}
             onSaved={setProfile}
           />
-        </SlidePage>
-
-        <SlidePage layer={getSlideLayer('family', currentMenuKey)}>
+        )
+      case 'family':
+        return (
           <FamilyManagementPage families={families} onBack={goBack} onChange={setFamilies} />
-        </SlidePage>
+        )
+      case 'admin-users':
+        return <AdminUsersPage user={user} onBack={goBack} onUserUpdated={onUserUpdated} />
+    }
+  }
 
-        {user.role === 'admin' ? (
-          <SlidePage layer={getSlideLayer('admin-users', currentMenuKey)}>
-            <AdminUsersPage user={user} onBack={goBack} onUserUpdated={onUserUpdated} />
-          </SlidePage>
-        ) : null}
-      </SlideStack>
+  return (
+    <div className="authenticated-app">
+      <div inert={profileOpen || undefined}>
+        <HomePage onOpenAccount={openProfile} />
+      </div>
+
+      <SlideStack stack={stack} renderPage={renderStackPage} />
 
       <ConfirmDialog
         open={logoutOpen}
