@@ -8,6 +8,8 @@ import { STORAGE_LOCATIONS } from '../constants/storageLocations'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 import type { ScanIntakeInput } from '../types/inventory'
 import type { Product } from '../types/product'
+import { DatePickerField } from './DatePickerField'
+import { QuantityStepper } from './QuantityStepper'
 import { SelectField } from './SelectField'
 import { SubmitButton } from './SubmitButton'
 import { TextField } from './TextField'
@@ -60,11 +62,9 @@ export function ScanSheet({
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [contentHeight, setContentHeight] = useState<number | null>(null)
 
-  const [intakeSpec, setIntakeSpec] = useState('')
-  const [intakeQuantity, setIntakeQuantity] = useState('1')
+  const [intakeQuantity, setIntakeQuantity] = useState(1)
   const [intakeExpiry, setIntakeExpiry] = useState('')
   const [intakeLocation, setIntakeLocation] = useState('')
-  const [intakeNotes, setIntakeNotes] = useState('')
   const [intakeErrors, setIntakeErrors] = useState<IntakeFieldErrors>({})
 
   if (prevOpen !== open) {
@@ -82,11 +82,9 @@ export function ScanSheet({
   }
 
   function resetIntakeForm() {
-    setIntakeSpec('')
-    setIntakeQuantity('1')
+    setIntakeQuantity(1)
     setIntakeExpiry('')
     setIntakeLocation('')
-    setIntakeNotes('')
     setIntakeErrors({})
   }
 
@@ -126,11 +124,9 @@ export function ScanSheet({
     lookupError,
     cameraError,
     phase,
-    intakeSpec,
     intakeQuantity,
     intakeExpiry,
     intakeLocation,
-    intakeNotes,
     intakeErrors,
     saveError,
     saving,
@@ -193,8 +189,6 @@ export function ScanSheet({
 
   function handleContinueToIntake() {
     if (!product) return
-    setIntakeSpec(product.spec)
-    if (!intakeQuantity.trim()) setIntakeQuantity('1')
     setIntakeErrors({})
     setSlideDirection('forward')
     setMode('intake')
@@ -213,10 +207,9 @@ export function ScanSheet({
     event.preventDefault()
     if (!product || saving) return
 
-    const quantity = Number.parseInt(intakeQuantity, 10)
     const nextErrors: IntakeFieldErrors = {}
 
-    if (!intakeQuantity.trim() || !Number.isFinite(quantity) || quantity < 1) {
+    if (!Number.isFinite(intakeQuantity) || intakeQuantity < 1) {
       nextErrors.quantity = '请输入数量'
     }
     if (!intakeLocation) {
@@ -231,11 +224,10 @@ export function ScanSheet({
     setIntakeErrors({})
     onSaveIntake?.({
       productId: product.id,
-      spec: intakeSpec.trim(),
-      quantity,
+      spec: product.spec.trim(),
+      quantity: intakeQuantity,
       expiryDate: intakeExpiry,
       storageLocation: intakeLocation,
-      notes: intakeNotes.trim(),
     })
   }
 
@@ -407,41 +399,33 @@ export function ScanSheet({
                   <TextField
                     id="scan-intake-spec"
                     label="规格"
-                    value={intakeSpec}
-                    onValueChange={setIntakeSpec}
-                    placeholder="例如 500ml"
-                    autoComplete="off"
+                    showLabel
+                    readOnly
+                    value={product.spec.trim() || '暂无规格信息'}
+                    onValueChange={() => {}}
                   />
-                  <TextField
-                    id="scan-intake-quantity"
+                  <QuantityStepper
                     label="数量"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step={1}
+                    showLabel
                     value={intakeQuantity}
-                    onValueChange={(value) => {
+                    onChange={(value) => {
                       setIntakeQuantity(value)
                       if (intakeErrors.quantity) {
                         setIntakeErrors((current) => ({ ...current, quantity: undefined }))
                       }
                     }}
-                    placeholder="请输入数量"
-                    autoComplete="off"
                     error={intakeErrors.quantity}
-                    required
                   />
-                  <TextField
-                    id="scan-intake-expiry"
+                  <DatePickerField
                     label="有效期"
-                    type="date"
+                    showLabel
                     value={intakeExpiry}
-                    onValueChange={setIntakeExpiry}
-                    autoComplete="off"
+                    onChange={setIntakeExpiry}
+                    placeholder="请选择有效期"
                   />
                   <SelectField
-                    id="scan-intake-location"
                     label="存放位置"
+                    showLabel
                     value={intakeLocation}
                     onValueChange={(value) => {
                       setIntakeLocation(value)
@@ -455,15 +439,6 @@ export function ScanSheet({
                     options={STORAGE_OPTIONS}
                     placeholder="请选择存放位置"
                     error={intakeErrors.storageLocation}
-                    required
-                  />
-                  <TextField
-                    id="scan-intake-notes"
-                    label="补充信息"
-                    value={intakeNotes}
-                    onValueChange={setIntakeNotes}
-                    placeholder="选填"
-                    autoComplete="off"
                   />
 
                   {saveError ? (

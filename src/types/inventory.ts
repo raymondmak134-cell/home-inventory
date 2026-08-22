@@ -40,5 +40,4 @@ export type ScanIntakeInput = {
   quantity: number
   expiryDate: string
   storageLocation: string
-  notes: string
 }

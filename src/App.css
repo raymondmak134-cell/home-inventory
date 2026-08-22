@@ -197,6 +197,239 @@
   background: transparent;
 }
 
+.field-block--labeled {
+  gap: 0.42rem;
+}
+
+.field-label {
+  padding: 0 0.15rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.field.is-readonly {
+  background: #eceef1;
+  box-shadow: inset 0 0 0 1.5px #e5e7eb;
+}
+
+.field.is-readonly:focus-within {
+  box-shadow: inset 0 0 0 1.5px #e5e7eb;
+}
+
+.field.is-readonly input {
+  color: #4b5563;
+  cursor: default;
+  caret-color: transparent;
+}
+
+.quantity-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.35rem;
+  border-radius: 0.85rem;
+  background: #f3f4f6;
+  padding: 0 0.65rem;
+  box-shadow: inset 0 0 0 1.5px transparent;
+}
+
+.quantity-stepper.is-error {
+  box-shadow: inset 0 0 0 1.5px #ef4444;
+}
+
+.quantity-stepper__btn {
+  appearance: none;
+  border: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  box-shadow: inset 0 0 0 1px #e5e7eb;
+}
+
+.quantity-stepper__btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.quantity-stepper__value {
+  min-width: 2.5rem;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.field-picker {
+  position: relative;
+}
+
+.field-picker__trigger {
+  width: 100%;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.field-picker__trigger:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.field-picker__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  color: #111827;
+}
+
+.field-picker__placeholder {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  color: #c0c4cc;
+}
+
+.field-picker__icon {
+  flex: 0 0 auto;
+  color: #9ca3af;
+}
+
+.field-picker__menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border-radius: 0.85rem;
+  background: #ffffff;
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.12),
+    inset 0 0 0 1px #eef0f3;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.field-picker__option {
+  appearance: none;
+  border: 0;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.85rem;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: #111827;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.field-picker__option.is-selected,
+.field-picker__option:hover,
+.field-picker__option:focus-visible {
+  background: #f3f4f6;
+  outline: none;
+}
+
+.date-picker__panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  background: #ffffff;
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.12),
+    inset 0 0 0 1px #eef0f3;
+}
+
+.date-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.date-picker__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.date-picker__nav {
+  appearance: none;
+  border: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111827;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.date-picker__weekdays,
+.date-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+}
+
+.date-picker__weekdays {
+  margin-bottom: 0.35rem;
+}
+
+.date-picker__weekday {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.date-picker__day {
+  appearance: none;
+  border: 0;
+  min-height: 2.2rem;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #111827;
+  font-size: 0.92rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.date-picker__day.is-empty {
+  pointer-events: none;
+}
+
+.date-picker__day.is-today {
+  box-shadow: inset 0 0 0 1.5px #111827;
+}
+
+.date-picker__day.is-selected {
+  background: #111827;
+  color: #ffffff;
+}
+
 .field input::placeholder {
   color: #c0c4cc;
 }
@@ -1190,7 +1423,7 @@
 
 .scan-sheet__intake-form {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.85rem;
   padding: 0 16px;
 }
 

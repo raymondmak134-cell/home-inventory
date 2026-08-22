@@ -2,7 +2,7 @@ import { useId, useState, type InputHTMLAttributes } from 'react'
 import type { ReactNode } from 'react'
 
 type TextFieldProps = {
-  /** 无障碍名称（渲染为 sr-only label） */
+  /** 无障碍名称；默认 sr-only，showLabel 为 true 时在输入框上方展示 */
   label: string
   value: string
   onValueChange: (value: string) => void
@@ -12,9 +12,13 @@ type TextFieldProps = {
   icon?: ReactNode
   /** 密码输入框显示「显示/隐藏」切换按钮 */
   allowReveal?: boolean
+  /** 只读：不可编辑，并使用专用样式 */
+  readOnly?: boolean
+  /** 在输入框上方展示字段名称 */
+  showLabel?: boolean
 } & Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  'value' | 'onChange' | 'className' | 'children'
+  'value' | 'onChange' | 'className' | 'children' | 'readOnly'
 >
 
 /**
@@ -28,6 +32,8 @@ export function TextField({
   error,
   icon,
   allowReveal = false,
+  readOnly = false,
+  showLabel = false,
   type = 'text',
   id,
   ...inputProps
@@ -40,10 +46,23 @@ export function TextField({
   const inputType = isPassword && allowReveal && revealed ? 'text' : type
   const invalid = Boolean(error)
 
+  const fieldClassName = [
+    'field',
+    invalid ? 'is-error' : '',
+    readOnly ? 'is-readonly' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="field-block">
-      <label className={invalid ? 'field is-error' : 'field'} htmlFor={inputId}>
-        <span className="sr-only">{label}</span>
+    <div className={showLabel ? 'field-block field-block--labeled' : 'field-block'}>
+      {showLabel ? (
+        <label className="field-label" htmlFor={inputId}>
+          {label}
+        </label>
+      ) : null}
+      <label className={fieldClassName} htmlFor={inputId}>
+        {!showLabel ? <span className="sr-only">{label}</span> : null}
         {icon ? (
           <span className="field__icon" aria-hidden="true">
             {icon}
@@ -53,9 +72,12 @@ export function TextField({
           id={inputId}
           type={inputType}
           value={value}
+          readOnly={readOnly}
           aria-invalid={invalid}
           aria-describedby={errorId}
-          onChange={(event) => onValueChange(event.target.value)}
+          onChange={(event) => {
+            if (!readOnly) onValueChange(event.target.value)
+          }}
           {...inputProps}
         />
         {isPassword && allowReveal ? (
