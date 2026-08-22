@@ -9,6 +9,18 @@
 - pnpm workspace（根目录前端 + `server/` API）
 - Vitest + Testing Library / Oxlint
 
+## 探数条形码 API
+
+1. 复制环境变量模板：`cp .env.example .env.local`
+2. 填入探数个人中心的 `TANSHU_API_KEY`
+3. 启动后端时自动读取（密钥仅存在于服务端，不会暴露到浏览器）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/barcode?barcode=` | 登录后查询条形码商品信息（代理探数 API） |
+| `GET` | `/api/inventory/items` | 当前用户的入库物品列表 |
+| `POST` | `/api/inventory/items` | 入库一件物品（扫码确认或手动添加） |
+
 ## 本地开发
 
 ```bash

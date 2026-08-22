@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { ensureInventoryTables } from './inventory.ts'
 import { ensureProfileTables } from './profile.ts'
 
 export type UserRole = 'admin' | 'user'
@@ -78,6 +79,7 @@ export function createDatabase(dbPath = resolveDbPath()): DatabaseSync {
   `)
   ensureRoleColumn(db)
   ensureProfileTables(db)
+  ensureInventoryTables(db)
   promoteConfiguredAdmin(db)
   return db
 }

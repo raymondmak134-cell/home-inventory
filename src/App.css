@@ -1190,3 +1190,137 @@
 .confirm-dialog__confirm {
   margin-top: 0;
 }
+
+.home-status {
+  margin: 2rem 0;
+  text-align: center;
+  color: #6b7280;
+}
+
+.home-status--error {
+  color: #b91c1c;
+}
+
+.inventory-list__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.inventory-list__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.inventory-list__count {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  color: #6b7280;
+}
+
+.inventory-list__add {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 6.5rem;
+  padding-inline: 1rem;
+}
+
+.inventory-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inventory-list__item {
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.inventory-list__item-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.inventory-list__item-meta,
+.inventory-list__item-barcode {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: #6b7280;
+}
+
+.item-confirm-sheet__panel,
+.manual-add-sheet__panel {
+  padding-inline: 1.25rem;
+}
+
+.item-confirm-sheet__body {
+  padding: 0 0.25rem;
+}
+
+.item-confirm-sheet__barcode {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: #6b7280;
+}
+
+.item-confirm-sheet__status {
+  margin: 0 0 1rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.item-confirm-sheet__error,
+.manual-add-sheet__error {
+  margin: 0 0 1rem;
+  color: #b91c1c;
+  font-size: 0.92rem;
+}
+
+.item-confirm-sheet__product {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.item-confirm-sheet__product dt {
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+.item-confirm-sheet__product dd {
+  margin: 0.15rem 0 0;
+  font-weight: 500;
+  color: #111827;
+}
+
+.item-confirm-sheet__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.item-confirm-sheet__cancel {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.manual-add-sheet__form {
+  display: grid;
+  gap: 0.25rem;
+  padding-bottom: 0.5rem;
+}
+
+.manual-add-sheet__form .submit-btn {
+  margin-top: 0.75rem;
+}

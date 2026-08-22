@@ -23,6 +23,10 @@ import {
   verifyPassword,
 } from './password.ts'
 import {
+  createInventoryItem,
+  listInventoryItems,
+} from './inventory.ts'
+import {
   addFamilyMember,
   createFamily,
   deleteFamily,
@@ -39,6 +43,7 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from './session.ts'
+import { lookupTanshuBarcode } from './tanshu.ts'
 
 export type AppEnv = {
   Variables: {
@@ -391,6 +396,91 @@ export function createApp(db: DatabaseSync, options?: { secureCookies?: boolean 
   })
 
   app.route('/api/profile', profile)
+
+  const inventory = new Hono<AppEnv>()
+
+  inventory.use('*', async (c, next) => {
+    const user = c.get('user')
+    if (!user) {
+      return c.json(errorBody('UNAUTHENTICATED', '未登录'), 401)
+    }
+    await next()
+  })
+
+  inventory.get('/items', (c) => {
+    const user = c.get('user')!
+    const items = listInventoryItems(c.get('db'), user.id)
+    return c.json({ items })
+  })
+
+  inventory.post('/items', async (c) => {
+    const user = c.get('user')!
+    let body: {
+      barcode?: unknown
+      goodsName?: unknown
+      brand?: unknown
+      spec?: unknown
+      categoryName?: unknown
+      company?: unknown
+      image?: unknown
+      shelfLife?: unknown
+      originCountry?: unknown
+    }
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json(errorBody('INVALID_JSON', '请求格式无效'), 400)
+    }
+
+    if (typeof body.goodsName !== 'string' || !body.goodsName.trim()) {
+      return c.json(errorBody('INVALID_NAME', '请输入商品名称'), 400)
+    }
+
+    try {
+      const item = createInventoryItem(c.get('db'), user.id, {
+        barcode: typeof body.barcode === 'string' ? body.barcode : null,
+        goodsName: body.goodsName,
+        brand: typeof body.brand === 'string' ? body.brand : '',
+        spec: typeof body.spec === 'string' ? body.spec : '',
+        categoryName: typeof body.categoryName === 'string' ? body.categoryName : '',
+        company: typeof body.company === 'string' ? body.company : '',
+        image: typeof body.image === 'string' ? body.image : '',
+        shelfLife: typeof body.shelfLife === 'string' ? body.shelfLife : '',
+        originCountry: typeof body.originCountry === 'string' ? body.originCountry : '',
+      })
+      return c.json({ item }, 201)
+    } catch (error) {
+      if (error instanceof Error && error.message === 'GOODS_NAME_REQUIRED') {
+        return c.json(errorBody('INVALID_NAME', '请输入商品名称'), 400)
+      }
+      return c.json(errorBody('UNKNOWN', '入库失败，请稍后重试'), 500)
+    }
+  })
+
+  app.route('/api/inventory', inventory)
+
+  app.get('/api/barcode', async (c) => {
+    const user = c.get('user')
+    if (!user) {
+      return c.json(errorBody('UNAUTHENTICATED', '未登录'), 401)
+    }
+
+    const barcode = c.req.query('barcode')?.trim()
+    if (!barcode) {
+      return c.json(errorBody('INVALID_BARCODE', '缺少 barcode 参数'), 400)
+    }
+
+    const apiKey = process.env.TANSHU_API_KEY?.trim() ?? ''
+    const result = await lookupTanshuBarcode(barcode, apiKey)
+    if (!result.ok) {
+      return c.json(
+        errorBody('BARCODE_LOOKUP_FAILED', result.message),
+        result.message === '未配置 TANSHU_API_KEY' ? 500 : 404,
+      )
+    }
+
+    return c.json({ code: 1, msg: '操作成功', data: result.data })
+  })
 
   const admin = new Hono<AppEnv>()
 

@@ -34,10 +34,35 @@ function mockAuthApis(options?: {
     createdAt: string
     members: Array<{ id: number; name: string; createdAt: string }>
   }>
+  inventoryItems?: Array<{
+    id: number
+    barcode: string | null
+    goodsName: string
+    brand: string
+    spec: string
+    categoryName: string
+    company: string
+    image: string
+    shelfLife: string
+    originCountry: string
+    createdAt: string
+  }>
+  barcodeLookup?: {
+    goods_name: string
+    brand: string
+    barcode: string
+    spec?: string
+    category_name?: string
+    company?: string
+    image?: string
+    shelf_life?: string
+    origin_country?: string
+  }
 }) {
   const me = options?.me === undefined ? null : options.me
   let profile = options?.profile ?? { nickname: '', avatarUrl: null }
   let families = options?.families ?? []
+  let inventoryItems = options?.inventoryItems ?? []
 
   vi.stubGlobal(
     'fetch',
@@ -194,6 +219,53 @@ function mockAuthApis(options?: {
               },
             ],
           }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        )
+      }
+      if (url.endsWith('/api/inventory/items') && method === 'GET') {
+        return new Response(JSON.stringify({ items: inventoryItems }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/inventory/items') && method === 'POST') {
+        const body = init?.body ? JSON.parse(String(init.body)) : {}
+        const item = {
+          id: inventoryItems.length + 1,
+          barcode: body.barcode ?? null,
+          goodsName: body.goodsName,
+          brand: body.brand ?? '',
+          spec: body.spec ?? '',
+          categoryName: body.categoryName ?? '',
+          company: body.company ?? '',
+          image: body.image ?? '',
+          shelfLife: body.shelfLife ?? '',
+          originCountry: body.originCountry ?? '',
+          createdAt: '2026-01-01 00:00:00',
+        }
+        inventoryItems = [item, ...inventoryItems]
+        return new Response(JSON.stringify({ item }), {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.startsWith('/api/barcode?')) {
+        const lookup = options?.barcodeLookup ?? {
+          barcode: '6906337301091',
+          goods_name: '葱油压缩饼干',
+          brand: '冠生园',
+          spec: '118g*48袋',
+          category_name: '饼干、曲奇（耐储存）',
+          company: '上海冠生园益民食品有限公司',
+          image: '',
+          shelf_life: '720天',
+          origin_country: '中国',
+        }
+        return new Response(
+          JSON.stringify({ code: 1, msg: '操作成功', data: lookup }),
           {
             status: 200,
             headers: { 'content-type': 'application/json' },
@@ -447,6 +519,8 @@ describe('登录页', () => {
     })
     renderApp()
 
+    expect(await screen.findByRole('heading', { name: '当前为空仓' })).toBeInTheDocument()
+
     await user.click(await screen.findByRole('button', { name: '入库家里第一件物品' }))
 
     const dialog = await screen.findByRole('dialog', { name: '扫码入库' })
@@ -458,6 +532,32 @@ describe('登录页', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: '扫码入库' })).not.toBeInTheDocument()
     })
+  })
+
+  it('adds an item manually and shows the inventory list', async () => {
+    const user = userEvent.setup()
+    mockAuthApis({
+      me: {
+        id: 1,
+        username: 'demo',
+        role: 'user',
+        createdAt: '2026-01-01 00:00:00',
+      },
+    })
+    renderApp()
+
+    await user.click(await screen.findByRole('button', { name: '入库家里第一件物品' }))
+    await user.click(await screen.findByRole('button', { name: '无条形码？手动添加' }))
+
+    expect(await screen.findByRole('dialog', { name: '手动添加' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('商品名称'), '洗衣液')
+    await user.type(screen.getByLabelText('品牌（选填）'), '蓝月亮')
+    await user.click(screen.getByRole('button', { name: '确认入库' }))
+
+    expect(await screen.findByRole('heading', { name: '我的家仓' })).toBeInTheDocument()
+    expect(screen.getByText('洗衣液')).toBeInTheDocument()
+    expect(screen.getByText('蓝月亮')).toBeInTheDocument()
+    expect(screen.getByText('共 1 件物品')).toBeInTheDocument()
   })
 
   it('reuses login-style validation on the change-password form', async () => {

@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
 
 type ScanSheetProps = {
   open: boolean
   onClose: () => void
-  /** 「无条形码？手动添加」入口，交互后补 */
+  onBarcodeDetected?: (barcode: string) => void
+  /** 「无条形码？手动添加」入口 */
   onManualAdd?: () => void
 }
 
@@ -14,9 +16,14 @@ const EXIT_DURATION_MS = 360
 
 /**
  * 扫码入库底部弹窗：从页面底部向上滑出，顶部 24px 圆角，高度随内容自适应。
- * 打开时调取摄像头（后置优先）在扫码框内预览；条码识别等交互后补。
+ * 打开时调取摄像头（后置优先）在扫码框内预览并识别条形码。
  */
-export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
+export function ScanSheet({
+  open,
+  onClose,
+  onBarcodeDetected,
+  onManualAdd,
+}: ScanSheetProps) {
   const titleId = useId()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [phase, setPhase] = useState<Phase>(open ? 'open' : 'closed')
@@ -48,6 +55,10 @@ export function ScanSheet({ open, onClose, onManualAdd }: ScanSheetProps) {
   }, [phase])
 
   const cameraActive = phase === 'entering' || phase === 'open'
+
+  useBarcodeScanner(videoRef, cameraActive && Boolean(onBarcodeDetected), (barcode) => {
+    onBarcodeDetected?.(barcode)
+  })
 
   useEffect(() => {
     if (!cameraActive) return
