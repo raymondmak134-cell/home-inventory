@@ -1,39 +1,55 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import {
+  fetchProductByBarcode,
+  isProductNotFound,
+  ProductApiError,
+} from '../api/products'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
+import type { Product } from '../types/product'
 
 type ScanSheetProps = {
   open: boolean
   onClose: () => void
-  onBarcodeDetected?: (barcode: string) => void
-  /** 「无条形码？手动添加」入口 */
-  onManualAdd?: () => void
+  onManualAdd?: (options?: { barcode?: string; hint?: string }) => void
+  /** 「是这个，继续入库」——入库逻辑由父组件补充 */
+  onConfirmProduct?: (product: Product) => void
 }
 
-type Phase = 'closed' | 'entering' | 'open' | 'closing'
+type SheetPhase = 'closed' | 'entering' | 'open' | 'closing'
+type ScanMode = 'scanning' | 'loading' | 'preview' | 'error'
 
 /** 与 App.css 中 .scan-sheet 的过渡时长保持一致（含少量余量） */
 const EXIT_DURATION_MS = 360
 
-/**
- * 扫码入库底部弹窗：从页面底部向上滑出，顶部 24px 圆角，高度随内容自适应。
- * 打开时调取摄像头（后置优先）在扫码框内预览并识别条形码。
- */
 export function ScanSheet({
   open,
   onClose,
-  onBarcodeDetected,
   onManualAdd,
+  onConfirmProduct,
 }: ScanSheetProps) {
   const titleId = useId()
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [phase, setPhase] = useState<Phase>(open ? 'open' : 'closed')
+  const contentRef = useRef<HTMLDivElement>(null)
+  const lookupGeneration = useRef(0)
+
+  const [phase, setPhase] = useState<SheetPhase>(open ? 'open' : 'closed')
   const [prevOpen, setPrevOpen] = useState(open)
   const [cameraError, setCameraError] = useState('')
+  const [mode, setMode] = useState<ScanMode>('scanning')
+  const [product, setProduct] = useState<Product | null>(null)
+  const [lookupError, setLookupError] = useState<string | null>(null)
+  const [contentHeight, setContentHeight] = useState<number | null>(null)
 
   if (prevOpen !== open) {
     setPrevOpen(open)
     setPhase(open ? 'entering' : 'closing')
-    if (open) setCameraError('')
+    if (open) {
+      setCameraError('')
+      setMode('scanning')
+      setProduct(null)
+      setLookupError(null)
+      lookupGeneration.current += 1
+    }
   }
 
   useEffect(() => {
@@ -54,11 +70,69 @@ export function ScanSheet({
     return () => window.clearTimeout(timer)
   }, [phase])
 
-  const cameraActive = phase === 'entering' || phase === 'open'
+  useLayoutEffect(() => {
+    const node = contentRef.current
+    if (!node) return
 
-  useBarcodeScanner(videoRef, cameraActive && Boolean(onBarcodeDetected), (barcode) => {
-    onBarcodeDetected?.(barcode)
+    const measure = () => {
+      setContentHeight(node.offsetHeight)
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [mode, product, lookupError, cameraError, phase])
+
+  const cameraActive = (phase === 'entering' || phase === 'open') && mode === 'scanning'
+
+  useBarcodeScanner(videoRef, cameraActive, (detected) => {
+    void handleBarcodeDetected(detected)
   })
+
+  async function handleBarcodeDetected(detected: string) {
+    const generation = lookupGeneration.current + 1
+    lookupGeneration.current = generation
+    setProduct(null)
+    setLookupError(null)
+    setMode('loading')
+
+    try {
+      const result = await fetchProductByBarcode(detected)
+      if (lookupGeneration.current !== generation) return
+
+      if (result.product.image) {
+        await preloadImage(result.product.image)
+        if (lookupGeneration.current !== generation) return
+      }
+
+      setProduct(result.product)
+      setMode('preview')
+    } catch (caught) {
+      if (lookupGeneration.current !== generation) return
+
+      if (isProductNotFound(caught)) {
+        onManualAdd?.({
+          barcode: detected,
+          hint: '未找到该条形码对应的商品，请手动填写信息',
+        })
+        onClose()
+        return
+      }
+
+      setLookupError(
+        caught instanceof ProductApiError ? caught.message : '查询失败，请稍后重试',
+      )
+      setMode('error')
+    }
+  }
+
+  function handleRescan() {
+    lookupGeneration.current += 1
+    setProduct(null)
+    setLookupError(null)
+    setMode('scanning')
+  }
 
   useEffect(() => {
     if (!cameraActive) return
@@ -106,6 +180,14 @@ export function ScanSheet({
 
   if (phase === 'closed') return null
 
+  const showManualAdd = mode === 'scanning' || mode === 'error'
+  const captionText =
+    mode === 'preview' && product
+      ? product.goodsName
+      : mode === 'error' && lookupError
+        ? lookupError
+        : '请扫描商品包装上的条形码快速入库'
+
   return (
     <div
       className={phase === 'open' ? 'scan-sheet is-open' : 'scan-sheet'}
@@ -122,43 +204,164 @@ export function ScanSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        style={
+          contentHeight !== null
+            ? { height: `${contentHeight}px` }
+            : undefined
+        }
       >
-        <header className="scan-sheet__header">
-          <h2 id={titleId} className="scan-sheet__title">
-            扫码入库
-          </h2>
-          <button
-            type="button"
-            className="scan-sheet__close"
-            aria-label="关闭"
-            onClick={onClose}
+        <div ref={contentRef} className="scan-sheet__content">
+          <header className="scan-sheet__header">
+            <h2 id={titleId} className="scan-sheet__title">
+              扫码入库
+            </h2>
+            <button
+              type="button"
+              className="scan-sheet__close"
+              aria-label="关闭"
+              onClick={onClose}
+            >
+              <CloseIcon />
+            </button>
+          </header>
+
+          <div
+            className={
+              mode === 'preview'
+                ? 'scan-sheet__frame scan-sheet__frame--preview'
+                : 'scan-sheet__frame'
+            }
+            aria-busy={mode === 'loading'}
           >
-            <CloseIcon />
-          </button>
-        </header>
+            {mode === 'scanning' ? (
+              <>
+                <video
+                  ref={videoRef}
+                  className="scan-sheet__video"
+                  playsInline
+                  muted
+                  autoPlay
+                />
+                {cameraError ? (
+                  <p className="scan-sheet__camera-hint">{cameraError}</p>
+                ) : (
+                  <BarcodeHintIcon />
+                )}
+              </>
+            ) : null}
 
-        <div className="scan-sheet__frame">
-          <video
-            ref={videoRef}
-            className="scan-sheet__video"
-            playsInline
-            muted
-            autoPlay
-          />
-          {cameraError ? (
-            <p className="scan-sheet__camera-hint">{cameraError}</p>
-          ) : (
-            <BarcodeHintIcon />
-          )}
+            {mode === 'loading' ? (
+              <div className="scan-sheet__loading" role="status">
+                <LoadingSpinner />
+                <span className="scan-sheet__loading-text">正在识别商品…</span>
+              </div>
+            ) : null}
+
+            {mode === 'preview' && product ? (
+              product.image ? (
+                <img
+                  className="scan-sheet__product-image"
+                  src={product.image}
+                  alt={product.goodsName}
+                />
+              ) : (
+                <div className="scan-sheet__product-fallback" aria-hidden="true">
+                  <span>{product.goodsName.slice(0, 1) || '?'}</span>
+                </div>
+              )
+            ) : null}
+
+            {mode === 'error' ? (
+              <div className="scan-sheet__error-state" role="alert">
+                <span className="scan-sheet__error-icon" aria-hidden="true">
+                  !
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          <p
+            className={
+              mode === 'preview'
+                ? 'scan-sheet__caption scan-sheet__caption--title'
+                : mode === 'error'
+                  ? 'scan-sheet__caption scan-sheet__caption--error'
+                  : 'scan-sheet__caption'
+            }
+          >
+            {captionText}
+          </p>
+
+          {mode === 'preview' && product ? (
+            <div className="scan-sheet__preview-actions">
+              <button
+                type="button"
+                className="scan-sheet__confirm-pill"
+                onClick={() => onConfirmProduct?.(product)}
+              >
+                是这个，继续入库
+              </button>
+              <button
+                type="button"
+                className="scan-sheet__manual"
+                onClick={handleRescan}
+              >
+                扫错了，重新扫码
+              </button>
+            </div>
+          ) : null}
+
+          {showManualAdd ? (
+            <button
+              type="button"
+              className="scan-sheet__manual"
+              onClick={() => onManualAdd?.()}
+            >
+              无条形码？手动添加
+            </button>
+          ) : null}
+
+          {mode === 'error' ? (
+            <button type="button" className="scan-sheet__manual" onClick={handleRescan}>
+              扫错了，重新扫码
+            </button>
+          ) : null}
         </div>
-
-        <p className="scan-sheet__caption">请扫描商品包装上的条形码快速入库</p>
-
-        <button type="button" className="scan-sheet__manual" onClick={onManualAdd}>
-          无条形码？手动添加
-        </button>
       </div>
     </div>
+  )
+}
+
+function preloadImage(src: string): Promise<void> {
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => resolve()
+    image.onerror = () => resolve()
+    image.src = src
+  })
+}
+
+function LoadingSpinner() {
+  return (
+    <svg
+      className="scan-sheet__spinner"
+      viewBox="0 0 24 24"
+      width="40"
+      height="40"
+      aria-hidden="true"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray="42"
+        strokeDashoffset="12"
+      />
+    </svg>
   )
 }
 
@@ -168,11 +371,6 @@ type ExtendedCapabilities = MediaTrackCapabilities & {
   focusMode?: string[]
 }
 
-/**
- * 本次页面会话内选定的扫码摄像头：
- * undefined = 尚未探测；null = 探测过、直接用默认 environment；string = 主摄 deviceId。
- * 缓存后重开弹窗只做一次取流，避免「探测流 + 主摄流」先后开启的切换过程。
- */
 let cachedScanCameraId: string | null | undefined
 
 function scanVideoConstraints(deviceId?: string | null): MediaStreamConstraints {
@@ -196,13 +394,6 @@ function waitMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/**
- * 打开扫码用摄像头流。
- * 首次打开：先用 environment 探测（拿授权和设备标签），选出主摄后
- * 「先停止探测流、稍等释放、再开主摄流」——两路相机流并行会卡住部分
- * 机型（如 OPPO Find X8 Ultra）的相机服务，导致之后取流一直黑屏。
- * 之后打开：直接用缓存的主摄 deviceId 一次取流；失效则回退重探测。
- */
 async function openScanCameraStream(
   isCancelled: () => boolean,
 ): Promise<MediaStream | null> {
@@ -212,7 +403,6 @@ async function openScanCameraStream(
         scanVideoConstraints(cachedScanCameraId),
       )
     } catch {
-      // deviceId 失效（如权限重置）：清缓存走重新探测
       cachedScanCameraId = undefined
     }
   }
@@ -231,7 +421,6 @@ async function openScanCameraStream(
     return probe
   }
 
-  // 先释放探测流，等相机服务归还硬件后再开主摄流
   probe.getTracks().forEach((track) => track.stop())
   await waitMs(200)
   if (isCancelled()) return null
@@ -248,16 +437,9 @@ async function openScanCameraStream(
   }
 }
 
-/** 副摄关键词：长焦 / 微距 / 超广角 / 景深等，扫码应避开 */
 const AUX_CAMERA_PATTERN =
   /tele|zoom|长焦|potrait|portrait|macro|微距|ultra|超广|wide[- ]?angle|depth|景深|bokeh|mono|黑白|ir\b/i
 
-/**
- * 在多后摄机型上挑选适合扫码的主摄：
- * 过滤出后置摄像头，排除长焦/微距等副摄，优先支持连续对焦、
- * 变焦下限不超过 1 的设备，同编号越小越可能是主摄。
- * 返回 null 表示无需切换（无更优选择或与当前一致）。
- */
 async function pickMainRearCameraId(
   currentDeviceId: string | undefined,
 ): Promise<string | null> {
@@ -283,7 +465,6 @@ async function pickMainRearCameraId(
         candidate.caps?.facingMode?.includes('environment') ||
         /back|rear|environment|后置/.test(candidate.label),
     )
-    // 只有一个后摄（或识别不出朝向）时不做切换
     if (rear.length <= 1) return null
 
     let pool = rear.filter((candidate) => !AUX_CAMERA_PATTERN.test(candidate.label))
@@ -294,7 +475,6 @@ async function pickMainRearCameraId(
     )
     if (focusable.length > 0) pool = focusable
 
-    // 主摄一般支持 1x（甚至更低）起步的变焦；剔除起步倍率明显偏大的镜头
     const normalZoom = pool.filter((candidate) => {
       const min = candidate.caps?.zoom?.min
       return typeof min !== 'number' || min <= 1
@@ -339,14 +519,10 @@ async function tuneCameraTrack(track: MediaStreamTrack | undefined) {
       await track.applyConstraints({ advanced } as MediaTrackConstraints)
     }
   } catch {
-    // 能力协商失败时保留默认画面，不影响预览
+    // ignore
   }
 }
 
-/**
- * 扫码框中央的半透明条形码占位图标（按 EAN 条形码特征绘制）：
- * 数据条粗细不一且较短；起始、中间、末端各有两条更长的细护线。
- */
 function BarcodeHintIcon() {
   return (
     <svg
@@ -355,10 +531,8 @@ function BarcodeHintIcon() {
       aria-hidden="true"
     >
       <g fill="currentColor">
-        {/* 起始护线（两条长细线） */}
         <rect x="0" y="0" width="2" height="64" />
         <rect x="4" y="0" width="2" height="64" />
-        {/* 左侧数据条（粗细不一，较短） */}
         <rect x="8" y="0" width="3" height="56" />
         <rect x="13" y="0" width="1.5" height="56" />
         <rect x="17" y="0" width="4.5" height="56" />
@@ -369,10 +543,8 @@ function BarcodeHintIcon() {
         <rect x="43" y="0" width="3.5" height="56" />
         <rect x="49" y="0" width="1.5" height="56" />
         <rect x="52" y="0" width="2.5" height="56" />
-        {/* 中间护线（两条长细线） */}
         <rect x="57" y="0" width="2" height="64" />
         <rect x="61" y="0" width="2" height="64" />
-        {/* 右侧数据条（粗细不一，较短） */}
         <rect x="65" y="0" width="3.5" height="56" />
         <rect x="70" y="0" width="1.5" height="56" />
         <rect x="74" y="0" width="5" height="56" />
@@ -383,7 +555,6 @@ function BarcodeHintIcon() {
         <rect x="101" y="0" width="2" height="56" />
         <rect x="105" y="0" width="1.5" height="56" />
         <rect x="108.5" y="0" width="3" height="56" />
-        {/* 末端护线（两条长细线） */}
         <rect x="114" y="0" width="2" height="64" />
         <rect x="118" y="0" width="2" height="64" />
       </g>

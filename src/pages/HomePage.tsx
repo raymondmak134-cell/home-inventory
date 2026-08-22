@@ -5,14 +5,8 @@ import {
   fetchInventoryItems,
   InventoryApiError,
 } from '../api/inventory'
-import {
-  fetchProductByBarcode,
-  isProductNotFound,
-  ProductApiError,
-} from '../api/products'
 import { EmptyWarehouse } from '../components/EmptyWarehouse'
 import { InventoryList } from '../components/InventoryList'
-import { ItemConfirmSheet } from '../components/ItemConfirmSheet'
 import { ManualAddSheet } from '../components/ManualAddSheet'
 import { ScanSheet } from '../components/ScanSheet'
 import { TopNav } from '../components/TopNav'
@@ -32,11 +26,6 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
   const [manualOpen, setManualOpen] = useState(false)
   const [manualBarcode, setManualBarcode] = useState('')
   const [manualHint, setManualHint] = useState<string | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [confirmBarcode, setConfirmBarcode] = useState('')
-  const [confirmProduct, setConfirmProduct] = useState<Product | null>(null)
-  const [confirmLoading, setConfirmLoading] = useState(false)
-  const [confirmError, setConfirmError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [manualError, setManualError] = useState<string | null>(null)
 
@@ -64,51 +53,20 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
 
   function openManual(options?: { barcode?: string; hint?: string }) {
     setScanOpen(false)
-    setConfirmOpen(false)
     setManualError(null)
     setManualBarcode(options?.barcode ?? '')
     setManualHint(options?.hint ?? null)
     setManualOpen(true)
   }
 
-  async function handleBarcodeDetected(barcode: string) {
-    setScanOpen(false)
-    setConfirmBarcode(barcode)
-    setConfirmProduct(null)
-    setConfirmError(null)
-    setConfirmLoading(true)
-    setConfirmOpen(true)
-
-    try {
-      const result = await fetchProductByBarcode(barcode)
-      setConfirmProduct(result.product)
-    } catch (caught) {
-      if (isProductNotFound(caught)) {
-        setConfirmOpen(false)
-        openManual({
-          barcode,
-          hint: '未找到该条形码对应的商品，请手动填写信息',
-        })
-        return
-      }
-      setConfirmError(
-        caught instanceof ProductApiError ? caught.message : '查询失败，请稍后重试',
-      )
-    } finally {
-      setConfirmLoading(false)
-    }
-  }
-
-  async function handleConfirmSave() {
-    if (!confirmProduct) return
+  async function handleConfirmProduct(product: Product) {
     setSaving(true)
-    setConfirmError(null)
     try {
-      const item = await createInventoryItemFromProduct(confirmProduct.id)
+      const item = await createInventoryItemFromProduct(product.id)
       setItems((current) => [item, ...current])
-      setConfirmOpen(false)
+      setScanOpen(false)
     } catch (caught) {
-      setConfirmError(
+      window.alert(
         caught instanceof InventoryApiError ? caught.message : '入库失败，请稍后重试',
       )
     } finally {
@@ -163,21 +121,8 @@ export function HomePage({ onOpenAccount }: HomePageProps) {
       <ScanSheet
         open={scanOpen}
         onClose={() => setScanOpen(false)}
-        onManualAdd={() => openManual()}
-        onBarcodeDetected={(barcode) => void handleBarcodeDetected(barcode)}
-      />
-
-      <ItemConfirmSheet
-        open={confirmOpen}
-        barcode={confirmBarcode}
-        product={confirmProduct}
-        loading={confirmLoading}
-        error={confirmError}
-        saving={saving}
-        onClose={() => {
-          if (!saving) setConfirmOpen(false)
-        }}
-        onConfirm={() => void handleConfirmSave()}
+        onManualAdd={openManual}
+        onConfirmProduct={(product) => void handleConfirmProduct(product)}
       />
 
       <ManualAddSheet
