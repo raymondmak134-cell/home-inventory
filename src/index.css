@@ -14,12 +14,23 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Global: never show system blue tap/focus chrome */
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+}
+
+*:focus,
+*:focus-visible,
+*:active {
+  outline: none;
 }
 
 html,
@@ -31,6 +42,30 @@ body,
 
 body {
   background: #ffffff;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+a,
+label,
+[role='button'],
+[role='tab'] {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+button:focus,
+button:focus-visible,
+button:active,
+input:focus,
+input:focus-visible,
+a:focus,
+a:focus-visible,
+label:focus,
+label:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 button,
@@ -41,3 +76,9 @@ input {
 a {
   color: inherit;
 }
+
+::selection {
+  background: rgba(15, 23, 42, 0.12);
+  color: inherit;
+}
+
