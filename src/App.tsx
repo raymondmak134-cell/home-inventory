@@ -9,6 +9,7 @@ import {
   type PublicUser,
 } from './api/auth'
 import { LockIcon, UserIcon } from './components/fieldIcons'
+import { SubmitButton } from './components/SubmitButton'
 import { TextField } from './components/TextField'
 import { AuthenticatedApp } from './pages/AuthenticatedApp'
 import {
@@ -320,9 +321,9 @@ export default function App() {
             {errors.form ?? ''}
           </p>
 
-          <button type="submit" className="submit-btn" disabled={submitting}>
+          <SubmitButton type="submit" disabled={submitting}>
             {submitting ? (isLogin ? '登录中…' : '注册中…') : isLogin ? '登录' : '注册'}
-          </button>
+          </SubmitButton>
         </form>
 
         {isLogin ? (

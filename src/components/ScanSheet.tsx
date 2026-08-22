@@ -5,6 +5,7 @@ import {
   ProductApiError,
 } from '../api/products'
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner'
+import { SubmitButton } from './SubmitButton'
 import type { Product } from '../types/product'
 
 type ScanSheetProps = {
@@ -294,13 +295,12 @@ export function ScanSheet({
 
           {mode === 'preview' && product ? (
             <div className="scan-sheet__preview-actions">
-              <button
+              <SubmitButton
                 type="button"
-                className="scan-sheet__confirm-pill"
                 onClick={() => onConfirmProduct?.(product)}
               >
                 是这个，继续入库
-              </button>
+              </SubmitButton>
               <button
                 type="button"
                 className="scan-sheet__manual"
