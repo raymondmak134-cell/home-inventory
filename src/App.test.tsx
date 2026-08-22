@@ -430,7 +430,9 @@ describe('登录页', () => {
     renderApp(['/profile/settings'])
 
     expect(await screen.findByRole('heading', { name: '账号设置', level: 1 })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '保存资料' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '修改密码' })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('请输入昵称')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '上传头像' })).not.toBeInTheDocument()
   })
 
   it('shows API field errors from the backend', async () => {

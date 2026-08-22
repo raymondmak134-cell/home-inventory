@@ -30,7 +30,6 @@ function AuthenticatedRoutes({
     families,
     loading,
     error,
-    setProfile,
     setFamilies,
     openProfile,
     openSubPage,
@@ -80,14 +79,7 @@ function AuthenticatedRoutes({
           />
         )
       case 'account-settings':
-        return (
-          <AccountSettingsPage
-            key={`${profile.nickname}:${profile.avatarUrl ?? ''}`}
-            profile={profile}
-            onBack={goBack}
-            onSaved={setProfile}
-          />
-        )
+        return <AccountSettingsPage onBack={goBack} />
       case 'family':
         return (
           <FamilyManagementPage families={families} onBack={goBack} onChange={setFamilies} />
