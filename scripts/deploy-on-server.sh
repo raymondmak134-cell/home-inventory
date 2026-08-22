@@ -115,6 +115,44 @@ server {
 EOF
 )
 
+  # Avoid duplicate :80 default servers from distro nginx.conf.
+  if [ -f /etc/nginx/nginx.conf ]; then
+    python3 - <<'PY' || true
+from pathlib import Path
+path = Path("/etc/nginx/nginx.conf")
+text = path.read_text()
+marker = "include /etc/nginx/conf.d/*.conf;"
+if "Default site disabled; jiawucang" in text:
+    raise SystemExit(0)
+old = """    server {
+        listen       80;
+        listen       [::]:80;
+        server_name  _;
+        root         /usr/share/nginx/html;
+
+        # Load configuration files for the default server block.
+        include /etc/nginx/default.d/*.conf;
+
+        error_page 404 /404.html;
+        location = /404.html {
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+        }
+    }"""
+new = """    # Default site disabled; jiawucang conf.d handles :80
+    # server {
+    #     listen       80;
+    #     listen       [::]:80;
+    #     server_name  _;
+    #     root         /usr/share/nginx/html;
+    # }"""
+if old in text:
+    path.write_text(text.replace(old, new, 1))
+PY
+  fi
+
   if [ -d /etc/nginx/sites-available ]; then
     printf '%s\n' "$conf_body" >/etc/nginx/sites-available/jiawucang
     mkdir -p /etc/nginx/sites-enabled
