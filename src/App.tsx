@@ -4,30 +4,51 @@ import './App.css'
 
 type AuthMode = 'login' | 'register'
 
+type FieldErrors = {
+  username?: string
+  password?: string
+}
+
 export default function App() {
   const [mode, setMode] = useState<AuthMode>('login')
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<FieldErrors>({})
   const usernameId = useId()
   const passwordId = useId()
+  const usernameErrorId = useId()
+  const passwordErrorId = useId()
+
+  function validate(): FieldErrors {
+    const next: FieldErrors = {}
+    if (!username.trim()) next.username = '请输入账号'
+    if (!password.trim()) next.password = '请输入密码'
+    return next
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    // Auth wiring comes later; keep native submit/keyboard behavior for now.
+    const next = validate()
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+    // Auth wiring comes later.
   }
 
   function switchMode(next: AuthMode) {
     setMode(next)
+    setErrors({})
+    setShowPassword(false)
     if (next === 'register') {
       setUsername('')
       setPassword('')
-      setShowPassword(false)
     }
   }
 
   const isLogin = mode === 'login'
   const passwordInputType = showPassword ? 'text' : 'password'
+  const usernameInvalid = Boolean(errors.username)
+  const passwordInvalid = Boolean(errors.password)
 
   return (
     <div className="login-page">
@@ -71,59 +92,95 @@ export default function App() {
           </button>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="field" htmlFor={usernameId}>
-            <span className="sr-only">账号</span>
-            <span className="field__icon" aria-hidden="true">
-              <UserIcon />
-            </span>
-            <input
-              id={usernameId}
-              name="username"
-              type="text"
-              inputMode="text"
-              autoComplete="username"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="next"
-              placeholder="请输入账号"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              required
-            />
-          </label>
-
-          <label className="field" htmlFor={passwordId}>
-            <span className="sr-only">密码</span>
-            <span className="field__icon" aria-hidden="true">
-              <LockIcon />
-            </span>
-            <input
-              id={passwordId}
-              name="password"
-              type={passwordInputType}
-              inputMode="text"
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              enterKeyHint="done"
-              placeholder="请输入密码"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-            <button
-              type="button"
-              className="field__action"
-              aria-label={showPassword ? '隐藏密码' : '显示密码'}
-              aria-pressed={showPassword}
-              onClick={() => setShowPassword((current) => !current)}
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <div className="field-block">
+            <label
+              className={usernameInvalid ? 'field is-error' : 'field'}
+              htmlFor={usernameId}
             >
-              {showPassword ? <EyeIcon /> : <EyeOffIcon />}
-            </button>
-          </label>
+              <span className="sr-only">账号</span>
+              <span className="field__icon" aria-hidden="true">
+                <UserIcon />
+              </span>
+              <input
+                id={usernameId}
+                name="username"
+                type="text"
+                inputMode="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="next"
+                placeholder="请输入账号"
+                value={username}
+                aria-invalid={usernameInvalid}
+                aria-describedby={usernameErrorId}
+                onChange={(event) => {
+                  setUsername(event.target.value)
+                  if (errors.username) {
+                    setErrors((current) => ({ ...current, username: undefined }))
+                  }
+                }}
+              />
+            </label>
+            <p
+              id={usernameErrorId}
+              className={usernameInvalid ? 'field-error is-visible' : 'field-error'}
+              role={usernameInvalid ? 'alert' : undefined}
+            >
+              {errors.username ?? ''}
+            </p>
+          </div>
+
+          <div className="field-block">
+            <label
+              className={passwordInvalid ? 'field is-error' : 'field'}
+              htmlFor={passwordId}
+            >
+              <span className="sr-only">密码</span>
+              <span className="field__icon" aria-hidden="true">
+                <LockIcon />
+              </span>
+              <input
+                id={passwordId}
+                name="password"
+                type={passwordInputType}
+                inputMode="text"
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                placeholder="请输入密码"
+                value={password}
+                aria-invalid={passwordInvalid}
+                aria-describedby={passwordErrorId}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                  if (errors.password) {
+                    setErrors((current) => ({ ...current, password: undefined }))
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="field__action"
+                aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+            </label>
+            <p
+              id={passwordErrorId}
+              className={passwordInvalid ? 'field-error is-visible' : 'field-error'}
+              role={passwordInvalid ? 'alert' : undefined}
+            >
+              {errors.password ?? ''}
+            </p>
+          </div>
 
           <button type="submit" className="submit-btn">
             {isLogin ? '登录' : '注册'}
