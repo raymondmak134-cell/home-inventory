@@ -1,27 +1,84 @@
 :root {
-  color: #1a1a1a;
-  background: #f4f4f4;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+  color: #111827;
+  background: #ffffff;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Noto Sans SC',
+    'Microsoft YaHei',
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Global: never show system blue tap/focus chrome */
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+}
+
+*:focus,
+*:focus-visible,
+*:active {
+  outline: none;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
 }
 
 body {
-  margin: 0;
+  background: #ffffff;
+  -webkit-tap-highlight-color: transparent;
 }
 
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1.25rem;
+button,
+input,
+a,
+label,
+[role='button'],
+[role='tab'] {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
-h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.5rem;
-  font-weight: 600;
+button:focus,
+button:focus-visible,
+button:active,
+input:focus,
+input:focus-visible,
+a:focus,
+a:focus-visible,
+label:focus,
+label:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
-p {
-  margin: 0;
-  color: #555;
+button,
+input {
+  font: inherit;
 }
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(15, 23, 42, 0.12);
+  color: inherit;
+}
+

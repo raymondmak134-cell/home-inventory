@@ -6,15 +6,22 @@
   "packageManager": "pnpm@10.12.1",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
+    "dev:server": "pnpm --dir server dev",
+    "dev:all": "pnpm --dir server dev & pnpm dev",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:server": "pnpm --dir server test",
+    "test:all": "pnpm test && pnpm test:server",
+    "test:watch": "vitest",
+    "start:server": "pnpm --dir server start"
   },
   "dependencies": {
+    "@zxing/browser": "^0.2.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

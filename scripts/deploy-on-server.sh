@@ -3,9 +3,13 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/raymondmak134-cell/home-inventory.git}"
-REPO_BRANCH="${REPO_BRANCH:-cursor/home-inventory-scaffold-f1ec}"
+REPO_BRANCH="${REPO_BRANCH:-cursor/barcode-scan-inventory-ee20}"
 APP_DIR="${APP_DIR:-/opt/jiawucang}"
 WEB_ROOT="${WEB_ROOT:-/var/www/jiawucang}"
+DATA_DIR="${DATA_DIR:-/var/lib/jiawucang}"
+API_PORT="${API_PORT:-3000}"
+SERVICE_NAME="${SERVICE_NAME:-jiawucang-api}"
+DOMAIN="${DOMAIN:-jiacang.site}"
 
 install_base_packages() {
   if command -v apt-get >/dev/null 2>&1; then
@@ -13,9 +17,12 @@ install_base_packages() {
     apt-get update -y
     apt-get install -y nginx git curl ca-certificates gnupg
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y nginx git curl ca-certificates
+    # OpenCloudOS + BT Panel often excludes nginx/httpd from default dnf matches.
+    dnf install -y git curl ca-certificates
+    dnf install -y nginx --disableexcludes=all
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y nginx git curl ca-certificates
+    yum install -y git curl ca-certificates
+    yum install -y nginx --disableexcludes=all
   else
     echo "Unsupported package manager" >&2
     exit 1
@@ -44,36 +51,195 @@ install_node() {
   fi
 }
 
+ensure_session_secret() {
+  mkdir -p "$DATA_DIR"
+  if [ ! -f "$DATA_DIR/session.secret" ]; then
+    openssl rand -hex 32 >"$DATA_DIR/session.secret"
+    chmod 600 "$DATA_DIR/session.secret"
+  fi
+}
+
+ensure_uploads_dir() {
+  mkdir -p "$DATA_DIR/uploads/products"
+  chmod 755 "$DATA_DIR/uploads" "$DATA_DIR/uploads/products"
+}
+
+read_tanshu_api_key() {
+  if [ -n "${TANSHU_API_KEY:-}" ]; then
+    printf '%s' "$TANSHU_API_KEY"
+    return
+  fi
+  if [ -f "$DATA_DIR/tanshu.api_key" ]; then
+    tr -d '\r\n' <"$DATA_DIR/tanshu.api_key"
+    return
+  fi
+  echo ""
+}
+
+configure_api_service() {
+  local session_secret
+  local tanshu_api_key
+  local secure_cookies="false"
+  local cert_dir="/etc/letsencrypt/live/${DOMAIN}"
+
+  session_secret="$(cat "$DATA_DIR/session.secret")"
+  tanshu_api_key="$(read_tanshu_api_key)"
+  if [ -f "${cert_dir}/fullchain.pem" ]; then
+    secure_cookies="true"
+  fi
+
+  if [ -z "$tanshu_api_key" ]; then
+    echo "WARNING: TANSHU_API_KEY not set. Barcode lookup will fail until you create:"
+    echo "  ${DATA_DIR}/tanshu.api_key"
+  fi
+
+  cat >/etc/systemd/system/${SERVICE_NAME}.service <<EOF
+[Unit]
+Description=Jiawucang API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=${APP_DIR}/server
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=${API_PORT}
+Environment=DATABASE_PATH=${DATA_DIR}/jiawucang.sqlite
+Environment=UPLOADS_PATH=${DATA_DIR}/uploads
+Environment=SESSION_SECRET=${session_secret}
+Environment=SECURE_COOKIES=${secure_cookies}
+Environment=ADMIN_USERNAME=13424330500
+Environment=TANSHU_API_KEY=${tanshu_api_key}
+ExecStart=$(command -v pnpm) start
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable "$SERVICE_NAME" >/dev/null 2>&1 || true
+  systemctl restart "$SERVICE_NAME"
+}
+
 configure_nginx() {
-  if [ -d /etc/nginx/sites-available ]; then
-    cat >/etc/nginx/sites-available/jiawucang <<EOF
+  local cert_dir="/etc/letsencrypt/live/${DOMAIN}"
+  local site_locations
+  site_locations=$(cat <<EOF
+    root ${WEB_ROOT};
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:${API_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+EOF
+)
+
+  local conf_body
+  if [ -f "${cert_dir}/fullchain.pem" ] && [ -f "${cert_dir}/privkey.pem" ]; then
+    # 有证书：域名 80 跳转 HTTPS，域名 443 提供服务；IP 直连仍走 80。
+    local ssl_extra=""
+    if [ -f /etc/letsencrypt/options-ssl-nginx.conf ]; then
+      ssl_extra="    include /etc/letsencrypt/options-ssl-nginx.conf;"
+    fi
+    if [ -f /etc/letsencrypt/ssl-dhparams.pem ]; then
+      ssl_extra="${ssl_extra}
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;"
+    fi
+    conf_body=$(cat <<EOF
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name _;
-    root ${WEB_ROOT};
-    index index.html;
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
+${site_locations}
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN} www.${DOMAIN};
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN} www.${DOMAIN};
+    ssl_certificate ${cert_dir}/fullchain.pem;
+    ssl_certificate_key ${cert_dir}/privkey.pem;
+${ssl_extra}
+${site_locations}
 }
 EOF
+)
+  else
+    conf_body=$(cat <<EOF
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+${site_locations}
+}
+EOF
+)
+  fi
+
+  # Avoid duplicate :80 default servers from distro nginx.conf.
+  if [ -f /etc/nginx/nginx.conf ]; then
+    python3 - <<'PY' || true
+from pathlib import Path
+path = Path("/etc/nginx/nginx.conf")
+text = path.read_text()
+marker = "include /etc/nginx/conf.d/*.conf;"
+if "Default site disabled; jiawucang" in text:
+    raise SystemExit(0)
+old = """    server {
+        listen       80;
+        listen       [::]:80;
+        server_name  _;
+        root         /usr/share/nginx/html;
+
+        # Load configuration files for the default server block.
+        include /etc/nginx/default.d/*.conf;
+
+        error_page 404 /404.html;
+        location = /404.html {
+        }
+
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+        }
+    }"""
+new = """    # Default site disabled; jiawucang conf.d handles :80
+    # server {
+    #     listen       80;
+    #     listen       [::]:80;
+    #     server_name  _;
+    #     root         /usr/share/nginx/html;
+    # }"""
+if old in text:
+    path.write_text(text.replace(old, new, 1))
+PY
+  fi
+
+  if [ -d /etc/nginx/sites-available ]; then
+    printf '%s\n' "$conf_body" >/etc/nginx/sites-available/jiawucang
     mkdir -p /etc/nginx/sites-enabled
     ln -sfn /etc/nginx/sites-available/jiawucang /etc/nginx/sites-enabled/jiawucang
     rm -f /etc/nginx/sites-enabled/default
   elif [ -d /etc/nginx/conf.d ]; then
-    cat >/etc/nginx/conf.d/jiawucang.conf <<EOF
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-    root ${WEB_ROOT};
-    index index.html;
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-}
-EOF
+    printf '%s\n' "$conf_body" >/etc/nginx/conf.d/jiawucang.conf
   else
     echo "nginx config directory not found" >&2
     exit 1
@@ -94,13 +260,19 @@ echo "==> Enabling pnpm"
 corepack enable
 corepack prepare pnpm@10.12.1 --activate
 
+echo "==> Preparing data directory"
+ensure_session_secret
+ensure_uploads_dir
+
 echo "==> Fetching source (${REPO_BRANCH})"
 rm -rf "$APP_DIR"
 git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
 cd "$APP_DIR"
 
-echo "==> Building frontend"
+echo "==> Installing dependencies"
 pnpm install --frozen-lockfile
+
+echo "==> Building frontend"
 pnpm build
 
 echo "==> Publishing static files"
@@ -108,14 +280,20 @@ mkdir -p "$WEB_ROOT"
 find "$WEB_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 cp -a dist/. "$WEB_ROOT/"
 
+echo "==> Configuring API service"
+configure_api_service
+
 echo "==> Configuring nginx"
 configure_nginx
 
 PUBLIC_IP="$(curl -fsS --max-time 3 ifconfig.me 2>/dev/null || true)"
 echo
 echo "Deploy finished."
-if [ -n "$PUBLIC_IP" ]; then
+if [ -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
+  echo "Open: https://${DOMAIN}/"
+elif [ -n "$PUBLIC_IP" ]; then
   echo "Open: http://${PUBLIC_IP}/"
 else
   echo "Open: http://YOUR_PUBLIC_IP/"
 fi
+echo "API health: http://127.0.0.1:${API_PORT}/api/health"
