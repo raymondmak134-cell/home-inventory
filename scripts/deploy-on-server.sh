@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/raymondmak134-cell/home-inventory.git}"
-REPO_BRANCH="${REPO_BRANCH:-cursor/barcode-scan-inventory-ee20}"
+REPO_BRANCH="${REPO_BRANCH:-main}"
 APP_DIR="${APP_DIR:-/opt/jiawucang}"
 WEB_ROOT="${WEB_ROOT:-/var/www/jiawucang}"
 DATA_DIR="${DATA_DIR:-/var/lib/jiawucang}"
